@@ -23,6 +23,9 @@ type DataContextType = {
 const DataContext = React.createContext<DataContextType | undefined>(undefined)
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  const [isLoaded, setIsLoaded] = React.useState(false)
+
+  // Initialize with default data
   const [familyMembers, setFamilyMembers] = React.useState(initialFamilyMembers)
   const [payouts, setPayouts] = React.useState(initialPayouts)
   const [utilityBills, setUtilityBills] = React.useState(initialUtilityBills)
@@ -30,6 +33,56 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [rooms, setRooms] = React.useState(initialRooms)
   const [renters, setRenters] = React.useState(initialRenters)
   const [rentPayments, setRentPayments] = React.useState(initialRentPayments)
+
+  // Load from localStorage on mount (client-side only)
+  React.useEffect(() => {
+    try {
+        const storedFamilyMembers = localStorage.getItem('familyMembers');
+        if (storedFamilyMembers) setFamilyMembers(JSON.parse(storedFamilyMembers));
+
+        const storedPayouts = localStorage.getItem('payouts');
+        if (storedPayouts) setPayouts(JSON.parse(storedPayouts));
+        
+        const storedUtilityBills = localStorage.getItem('utilityBills');
+        if (storedUtilityBills) setUtilityBills(JSON.parse(storedUtilityBills));
+        
+        const storedOtherExpenses = localStorage.getItem('otherExpenses');
+        if (storedOtherExpenses) setOtherExpenses(JSON.parse(storedOtherExpenses));
+        
+        const storedRooms = localStorage.getItem('rooms');
+        if (storedRooms) setRooms(JSON.parse(storedRooms));
+        
+        const storedRenters = localStorage.getItem('renters');
+        if (storedRenters) setRenters(JSON.parse(storedRenters));
+        
+        const storedRentPayments = localStorage.getItem('rentPayments');
+        if (storedRentPayments) setRentPayments(JSON.parse(storedRentPayments));
+
+    } catch (error) {
+        console.error("Failed to parse from localStorage", error);
+    }
+    setIsLoaded(true); // Mark as loaded after attempting to read from storage
+  }, []);
+
+  // Save to localStorage on change
+  React.useEffect(() => {
+    // We only save to localStorage if the data has been loaded from it first
+    // This prevents wiping localStorage with initial data on the first render.
+    if (isLoaded) {
+      try {
+        localStorage.setItem('familyMembers', JSON.stringify(familyMembers));
+        localStorage.setItem('payouts', JSON.stringify(payouts));
+        localStorage.setItem('utilityBills', JSON.stringify(utilityBills));
+        localStorage.setItem('otherExpenses', JSON.stringify(otherExpenses));
+        localStorage.setItem('rooms', JSON.stringify(rooms));
+        localStorage.setItem('renters', JSON.stringify(renters));
+        localStorage.setItem('rentPayments', JSON.stringify(rentPayments));
+      } catch (error) {
+        console.error("Failed to save to localStorage", error);
+      }
+    }
+  }, [isLoaded, familyMembers, payouts, utilityBills, otherExpenses, rooms, renters, rentPayments]);
+
 
   const value = {
     familyMembers, setFamilyMembers,
