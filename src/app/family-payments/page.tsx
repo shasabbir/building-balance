@@ -1,3 +1,4 @@
+
 "use client"
 import * as React from "react"
 import { PlusCircle, MoreHorizontal } from "lucide-react"
@@ -40,7 +41,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
-import type { Payout } from "@/lib/types"
+import type { FamilyMember, Payout } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -53,35 +54,46 @@ import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
 import { isSameMonth, lastDayOfMonth } from "date-fns"
 import { getEffectiveValue } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 
 
 export default function FamilyPaymentsPage() {
-  const { payouts, setPayouts, familyMembers } = useData()
+  const { payouts, setPayouts, familyMembers, setFamilyMembers } = useData()
   const { selectedDate } = useDate()
+  const { toast } = useToast()
 
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-  const [editingPayout, setEditingPayout] = React.useState<Payout | null>(null)
-  const [payoutToDelete, setPayoutToDelete] = React.useState<Payout | null>(null)
-
-  // Form State
-  const [selectedMemberId, setSelectedMemberId] = React.useState("")
-  const [amount, setAmount] = React.useState("")
+  const [isPayoutDialogOpen, setIsPayoutDialogOpen] = React.useState(false)
+  const [isMemberDialogOpen, setIsMemberDialogOpen] = React.useState(false)
   
-  const openDialog = (payout: Payout | null) => {
+  const [editingPayout, setEditingPayout] = React.useState<Payout | null>(null)
+  const [editingMember, setEditingMember] = React.useState<FamilyMember | null>(null)
+  
+  const [itemToDelete, setItemToDelete] = React.useState<{type: 'payout' | 'member', id: string} | null>(null)
+
+  // Payout Form State
+  const [selectedMemberId, setSelectedMemberId] = React.useState("")
+  const [payoutAmount, setPayoutAmount] = React.useState("")
+  
+  // Member Form State
+  const [memberName, setMemberName] = React.useState("")
+  const [memberExpected, setMemberExpected] = React.useState("")
+
+  
+  const openPayoutDialog = (payout: Payout | null) => {
       setEditingPayout(payout)
       if (payout) {
           setSelectedMemberId(payout.familyMemberId)
-          setAmount(payout.amount.toString())
+          setPayoutAmount(payout.amount.toString())
       } else {
           setSelectedMemberId("")
-          setAmount("")
+          setPayoutAmount("")
       }
-      setIsDialogOpen(true)
+      setIsPayoutDialogOpen(true)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handlePayoutSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedMemberId || !amount) return
+    if (!selectedMemberId || !payoutAmount) return
 
     const member = familyMembers.find(m => m.id === selectedMemberId)
     if (!member) return
@@ -90,7 +102,7 @@ export default function FamilyPaymentsPage() {
         const payoutData = {
           familyMemberId: selectedMemberId,
           familyMemberName: member.name,
-          amount: parseFloat(amount),
+          amount: parseFloat(payoutAmount),
         }
         setPayouts(payouts => payouts.map(p => p.id === editingPayout.id ? { ...p, ...payoutData } : p))
     } else {
@@ -99,19 +111,103 @@ export default function FamilyPaymentsPage() {
         const payoutData = {
           familyMemberId: selectedMemberId,
           familyMemberName: member.name,
-          amount: parseFloat(amount),
+          amount: parseFloat(payoutAmount),
           date: transactionDate.toISOString(),
         }
         setPayouts(prev => [{ id: `p${Date.now()}`, ...payoutData }, ...prev])
     }
 
-    setIsDialogOpen(false)
+    setIsPayoutDialogOpen(false)
     setEditingPayout(null)
   }
 
-  const handleDelete = (payout: Payout) => {
-      setPayouts(payouts => payouts.filter(p => p.id !== payout.id))
-      setPayoutToDelete(null)
+  const openMemberDialog = (member: FamilyMember | null) => {
+    setEditingMember(member)
+    if (member) {
+      setMemberName(member.name)
+      const currentExpected = getEffectiveValue(member.expectedHistory, new Date())
+      setMemberExpected(currentExpected.toString())
+    } else {
+      setMemberName("")
+      setMemberExpected("")
+    }
+    setIsMemberDialogOpen(true)
+  }
+
+  const handleMemberSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!memberName || !memberExpected) return
+
+    if (editingMember) {
+      const newExpectedAmount = parseFloat(memberExpected)
+      const currentExpectedAmount = getEffectiveValue(editingMember.expectedHistory, new Date())
+      
+      const history = Array.isArray(editingMember.expectedHistory) ? editingMember.expectedHistory : []
+      let updatedHistory = [...history]
+
+      if (newExpectedAmount !== currentExpectedAmount) {
+          const today = new Date();
+          const existingTodayIndex = updatedHistory.findIndex(
+            (entry) => new Date(entry.effectiveDate).toDateString() === today.toDateString()
+          );
+
+          if (existingTodayIndex !== -1) {
+            updatedHistory[existingTodayIndex].amount = newExpectedAmount;
+          } else {
+            updatedHistory.push({ amount: newExpectedAmount, effectiveDate: today.toISOString() });
+          }
+      }
+
+      const memberData = {
+        name: memberName,
+        expectedHistory: updatedHistory,
+      }
+      setFamilyMembers(members => members.map(m => m.id === editingMember.id ? { ...m, ...memberData } : m))
+    } else {
+      const newMember = {
+        id: `fm${Date.now()}`,
+        name: memberName,
+        expectedHistory: [{ amount: parseFloat(memberExpected), effectiveDate: new Date().toISOString() }],
+        cumulativePayable: 0
+      }
+      setFamilyMembers(prev => [newMember, ...prev])
+    }
+
+    setIsMemberDialogOpen(false)
+    setEditingMember(null)
+  }
+
+  const handleDelete = () => {
+      if (!itemToDelete) return
+      
+      if (itemToDelete.type === 'payout') {
+        setPayouts(payouts => payouts.filter(p => p.id !== itemToDelete.id))
+      } else if (itemToDelete.type === 'member') {
+        const hasPayouts = payouts.some(p => p.familyMemberId === itemToDelete.id)
+        if (hasPayouts) {
+          toast({
+            variant: "destructive",
+            title: "Cannot Delete Member",
+            description: "This family member has existing payout records.",
+          })
+          setItemToDelete(null)
+          return
+        }
+        setFamilyMembers(members => members.filter(m => m.id !== itemToDelete.id))
+      }
+      setItemToDelete(null)
+  }
+
+  const getDeleteItemDescription = () => {
+    if (!itemToDelete) return ""
+    switch (itemToDelete.type) {
+        case 'payout':
+            return "This will permanently delete the payout record. This action cannot be undone."
+        case 'member':
+            return "This will permanently delete the family member and all their records. This action cannot be undone."
+        default:
+            return "This action cannot be undone."
+    }
   }
 
   const familyMembersWithSummary = React.useMemo(() => {
@@ -138,10 +234,16 @@ export default function FamilyPaymentsPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Family Payments">
-        <Button size="sm" className="gap-1" onClick={() => openDialog(null)}>
-            <PlusCircle className="h-4 w-4" />
-            Add Payout
-        </Button>
+        <div className="flex gap-2">
+            <Button size="sm" className="gap-1" onClick={() => openMemberDialog(null)}>
+                <PlusCircle className="h-4 w-4" />
+                Add Family Member
+            </Button>
+            <Button size="sm" className="gap-1" onClick={() => openPayoutDialog(null)}>
+                <PlusCircle className="h-4 w-4" />
+                Add Payout
+            </Button>
+        </div>
       </PageHeader>
       
       <Card>
@@ -213,8 +315,8 @@ export default function FamilyPaymentsPage() {
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onSelect={() => openDialog(payout)}>Edit</DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setPayoutToDelete(payout)} className="text-red-600">Delete</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => openPayoutDialog(payout)}>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setItemToDelete({ type: 'payout', id: payout.id })} className="text-red-600">Delete</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -227,11 +329,52 @@ export default function FamilyPaymentsPage() {
             )}
         </CardContent>
       </Card>
+
+       <Card>
+        <CardHeader>
+          <CardTitle>Manage Family Members</CardTitle>
+          <CardDescription>Add or edit family member details.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member Name</TableHead>
+                <TableHead className="text-right">Expected Payout</TableHead>
+                <TableHead><span className="sr-only">Actions</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {familyMembers.map((member) => (
+                <TableRow key={member.id}>
+                  <TableCell className="font-medium">{member.name}</TableCell>
+                  <TableCell className="text-right">৳{getEffectiveValue(member.expectedHistory, selectedDate).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onSelect={() => openMemberDialog(member)}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setItemToDelete({type: 'member', id: member.id})} className="text-red-600">Delete</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
       
       {/* Add/Edit Payout Dialog */}
-       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+       <Dialog open={isPayoutDialogOpen} onOpenChange={setIsPayoutDialogOpen}>
           <DialogContent>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handlePayoutSubmit}>
               <DialogHeader>
                 <DialogTitle>{editingPayout ? "Edit Payout" : "Add Payout"}</DialogTitle>
                 <DialogDescription>
@@ -260,7 +403,7 @@ export default function FamilyPaymentsPage() {
                   <Label htmlFor="amount" className="text-right">
                     Amount Paid
                   </Label>
-                  <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                  <Input id="amount" type="number" className="col-span-3" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} />
                 </div>
               </div>
               <DialogFooter>
@@ -270,18 +413,49 @@ export default function FamilyPaymentsPage() {
           </DialogContent>
         </Dialog>
         
+        {/* Add/Edit Member Dialog */}
+        <Dialog open={isMemberDialogOpen} onOpenChange={setIsMemberDialogOpen}>
+            <DialogContent>
+              <form onSubmit={handleMemberSubmit}>
+                <DialogHeader>
+                  <DialogTitle>{editingMember ? "Edit Member" : "Add Member"}</DialogTitle>
+                  <DialogDescription>
+                    {editingMember ? "Update the details for this family member." : "Add a new family member."}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="member-name" className="text-right">
+                      Name
+                    </Label>
+                    <Input id="member-name" className="col-span-3" value={memberName} onChange={(e) => setMemberName(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="member-expected" className="text-right">
+                      Expected Payout
+                    </Label>
+                    <Input id="member-expected" type="number" className="col-span-3" value={memberExpected} onChange={(e) => setMemberExpected(e.target.value)} />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit">Save Member</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+        </Dialog>
+
         {/* Delete Confirmation Dialog */}
-        <AlertDialog open={!!payoutToDelete} onOpenChange={() => setPayoutToDelete(null)}>
+        <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the payout record.
+                      {getDeleteItemDescription()}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => payoutToDelete && handleDelete(payoutToDelete)}>
+                    <AlertDialogAction onClick={handleDelete}>
                     Continue
                     </AlertDialogAction>
                 </AlertDialogFooter>
