@@ -2,8 +2,6 @@ export interface FamilyMember {
   id: string
   name: string
   expected: number
-  paid: number
-  payable: number
   cumulativePayable: number
 }
 
@@ -24,7 +22,7 @@ export interface UtilityBill {
 }
 
 export interface Expense {
-  id: string
+  id:string
   date: string
   category: 'Household' | 'Maintenance' | 'Other'
   amount: number
@@ -42,8 +40,6 @@ export interface Renter {
   name: string
   roomId: string
   rentDue: number
-  rentPaid: number
-  payable: number
   cumulativePayable: number
 }
 

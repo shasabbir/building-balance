@@ -1,11 +1,11 @@
 import { FamilyMember, UtilityBill, Expense, Renter, Room, Payout, RentPayment } from "./types"
 
 export const familyMembers: FamilyMember[] = [
-  { id: "1", name: "Sabbir", expected: 10000, paid: 10000, payable: 0, cumulativePayable: 0 },
-  { id: "2", name: "Sumon", expected: 10000, paid: 8000, payable: 2000, cumulativePayable: 5000 },
-  { id: "3", name: "Juel", expected: 12000, paid: 12000, payable: 0, cumulativePayable: 0 },
-  { id: "4", name: "Suma", expected: 5000, paid: 5000, payable: 0, cumulativePayable: 1000 },
-  { id: "5", name: "Bibi Howa", expected: 8000, paid: 8000, payable: 0, cumulativePayable: 0 },
+  { id: "1", name: "Sabbir", expected: 10000, cumulativePayable: 0 },
+  { id: "2", name: "Sumon", expected: 10000, cumulativePayable: 5000 },
+  { id: "3", name: "Juel", expected: 12000, cumulativePayable: 0 },
+  { id: "4", name: "Suma", expected: 5000, cumulativePayable: 1000 },
+  { id: "5", name: "Bibi Howa", expected: 8000, cumulativePayable: 0 },
 ]
 
 export const payouts: Payout[] = [
@@ -39,10 +39,10 @@ export const rooms: Room[] = [
 ]
 
 export const renters: Renter[] = [
-  { id: "t1", name: "Mr. Karim", roomId: "r101", rentDue: 8000, rentPaid: 8000, payable: 0, cumulativePayable: 0 },
-  { id: "t2", name: "Ms. Salma", roomId: "r102", rentDue: 8500, rentPaid: 5000, payable: 3500, cumulativePayable: 3500 },
-  { id: "t3", name: "Mr. Farooq", roomId: "r201", rentDue: 9000, rentPaid: 9000, payable: 0, cumulativePayable: 1000 },
-  { id: "t4", name: "Mrs. Anika", roomId: "r202", rentDue: 7500, rentPaid: 7500, payable: 0, cumulativePayable: 0 },
+  { id: "t1", name: "Mr. Karim", roomId: "r101", rentDue: 8000, cumulativePayable: 0 },
+  { id: "t2", name: "Ms. Salma", roomId: "r102", rentDue: 8500, cumulativePayable: 3500 },
+  { id: "t3", name: "Mr. Farooq", roomId: "r201", rentDue: 9000, cumulativePayable: 1000 },
+  { id: "t4", name: "Mrs. Anika", roomId: "r202", rentDue: 7500, cumulativePayable: 0 },
 ]
 
 

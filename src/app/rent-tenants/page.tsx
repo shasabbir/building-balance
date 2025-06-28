@@ -40,8 +40,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
-import { renters as initialRenters, rooms, rentPayments as initialRentPayments } from "@/lib/data"
-import type { Renter, RentPayment } from "@/lib/types"
+import { renters as initialRenters, rooms as initialRooms, rentPayments as initialRentPayments } from "@/lib/data"
+import type { Renter, RentPayment, Room } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -50,23 +50,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useToast } from "@/hooks/use-toast"
 
-const getRoomNumber = (roomId: string) => {
-  return rooms.find(r => r.id === roomId)?.number || "N/A"
-}
 
 export default function RentTenantsPage() {
+  const { toast } = useToast()
   const [renters, setRenters] = React.useState<Renter[]>(initialRenters)
   const [rentPayments, setRentPayments] = React.useState<RentPayment[]>(initialRentPayments)
+  const [rooms, setRooms] = React.useState<Room[]>(initialRooms)
   
   // Dialog states
   const [isRenterDialogOpen, setIsRenterDialogOpen] = React.useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false)
-  const [itemToDelete, setItemToDelete] = React.useState<{type: 'renter' | 'payment', id: string} | null>(null)
+  const [isRoomDialogOpen, setIsRoomDialogOpen] = React.useState(false)
+  const [itemToDelete, setItemToDelete] = React.useState<{type: 'renter' | 'payment' | 'room', id: string} | null>(null)
   
   // Editing states
   const [editingRenter, setEditingRenter] = React.useState<Renter | null>(null)
   const [editingPayment, setEditingPayment] = React.useState<RentPayment | null>(null)
+  const [editingRoom, setEditingRoom] = React.useState<Room | null>(null)
 
   // Renter form state
   const [renterName, setRenterName] = React.useState("")
@@ -76,6 +78,14 @@ export default function RentTenantsPage() {
   // Payment form state
   const [selectedTenantId, setSelectedTenantId] = React.useState("")
   const [paymentAmount, setPaymentAmount] = React.useState("")
+
+  // Room form state
+  const [roomNumber, setRoomNumber] = React.useState("")
+  const [roomRentAmount, setRoomRentAmount] = React.useState("")
+
+  const getRoomNumber = (roomId: string) => {
+    return rooms.find(r => r.id === roomId)?.number || "N/A"
+  }
   
   // --- Renter Logic ---
   const openRenterDialog = (renter: Renter | null) => {
@@ -100,8 +110,6 @@ export default function RentTenantsPage() {
       name: renterName,
       roomId: renterRoomId,
       rentDue: parseFloat(renterRentDue),
-      rentPaid: editingRenter ? editingRenter.rentPaid : 0,
-      payable: editingRenter ? editingRenter.payable : parseFloat(renterRentDue),
       cumulativePayable: editingRenter ? editingRenter.cumulativePayable : 0,
     }
 
@@ -148,6 +156,36 @@ export default function RentTenantsPage() {
     }
     setIsPaymentDialogOpen(false)
   }
+
+  // --- Room Logic ---
+  const openRoomDialog = (room: Room | null) => {
+    setEditingRoom(room)
+    if (room) {
+        setRoomNumber(room.number)
+        setRoomRentAmount(room.rentAmount.toString())
+    } else {
+        setRoomNumber("")
+        setRoomRentAmount("")
+    }
+    setIsRoomDialogOpen(true)
+  }
+
+  const handleRoomSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!roomNumber || !roomRentAmount) return
+
+    const roomData = {
+        number: roomNumber,
+        rentAmount: parseFloat(roomRentAmount),
+    }
+
+    if (editingRoom) {
+        setRooms(rooms.map(r => r.id === editingRoom.id ? { ...r, ...roomData } : r))
+    } else {
+        setRooms(prev => [{ id: `r${Date.now()}`, ...roomData }, ...prev])
+    }
+    setIsRoomDialogOpen(false)
+  }
   
   // --- Delete Logic ---
   const handleDelete = () => {
@@ -158,9 +196,35 @@ export default function RentTenantsPage() {
       setRenters(renters.filter(r => r.id !== itemToDelete.id))
     } else if (itemToDelete.type === 'payment') {
       setRentPayments(rentPayments.filter(p => p.id !== itemToDelete.id))
+    } else if (itemToDelete.type === 'room') {
+      const isOccupied = renters.some(r => r.roomId === itemToDelete.id)
+      if (isOccupied) {
+        toast({
+          variant: "destructive",
+          title: "Cannot Delete Room",
+          description: "This room is currently occupied by a renter.",
+        })
+        setItemToDelete(null)
+        return
+      }
+      setRooms(rooms.filter(r => r.id !== itemToDelete.id))
     }
     setItemToDelete(null)
   }
+
+  const getDeleteItemDescription = () => {
+    if (!itemToDelete) return ""
+    switch (itemToDelete.type) {
+        case 'renter':
+            return "This will permanently delete the renter and all their associated payments. This action cannot be undone."
+        case 'payment':
+            return "This will permanently delete the rent payment record. This action cannot be undone."
+        case 'room':
+            return "This will permanently delete the room. This action cannot be undone."
+        default:
+            return "This action cannot be undone."
+    }
+}
   
   // --- Memoized Calculations ---
   const rentersWithSummary = React.useMemo(() => {
@@ -175,16 +239,24 @@ export default function RentTenantsPage() {
         // NOTE: Cumulative payable is not calculated dynamically from history
       }
     }).sort((a,b) => parseInt(getRoomNumber(a.roomId)) - parseInt(getRoomNumber(b.roomId)));
-  }, [renters, rentPayments])
+  }, [renters, rentPayments, rooms])
   
   const sortedRentPayments = React.useMemo(() => {
       return [...rentPayments].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [rentPayments])
 
+  const sortedRooms = React.useMemo(() => {
+    return [...rooms].sort((a,b) => parseInt(a.number) - parseInt(b.number));
+  }, [rooms])
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Rent & Tenants">
         <div className="flex gap-2">
+            <Button size="sm" className="gap-1" onClick={() => openRoomDialog(null)}>
+              <PlusCircle className="h-4 w-4" />
+              Add Room
+            </Button>
            <Button size="sm" className="gap-1" onClick={() => openRenterDialog(null)}>
               <PlusCircle className="h-4 w-4" />
               Add Renter
@@ -246,6 +318,52 @@ export default function RentTenantsPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onSelect={() => openRenterDialog(renter)}>Edit Renter</DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => setItemToDelete({type: 'renter', id: renter.id})} className="text-red-600">Delete Renter</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Rooms Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Manage Rooms</CardTitle>
+          <CardDescription>
+            Add, edit, or remove rooms in the building.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Room Number</TableHead>
+                <TableHead className="text-right">Rent Amount</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedRooms.map((room) => (
+                <TableRow key={room.id}>
+                  <TableCell className="font-medium">{room.number}</TableCell>
+                  <TableCell className="text-right">৳{room.rentAmount.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onSelect={() => openRoomDialog(room)}>Edit Room</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setItemToDelete({type: 'room', id: room.id})} className="text-red-600">Delete Room</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -386,13 +504,40 @@ export default function RentTenantsPage() {
           </DialogContent>
       </Dialog>
       
+      {/* Add/Edit Room Dialog */}
+      <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>
+          <DialogContent>
+            <form onSubmit={handleRoomSubmit}>
+              <DialogHeader>
+                <DialogTitle>{editingRoom ? 'Edit Room' : 'Add New Room'}</DialogTitle>
+                <DialogDescription>
+                  {editingRoom ? 'Update the details for this room.' : 'Add a new room to the building.'}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                 <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="room-number" className="text-right">Room No.</Label>
+                    <Input id="room-number" value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="rent-amount" className="text-right">Rent Amount</Label>
+                    <Input id="rent-amount" type="number" value={roomRentAmount} onChange={(e) => setRoomRentAmount(e.target.value)} className="col-span-3" />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Save Room</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+      </Dialog>
+      
       {/* Delete Confirmation Dialog */}
        <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the {itemToDelete?.type} and all associated data.
+              {getDeleteItemDescription()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
