@@ -51,7 +51,7 @@ import type { Expense } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
-import { isSameMonth } from "date-fns"
+import { isSameMonth, lastDayOfMonth } from "date-fns"
 
 
 export default function OtherExpensesPage() {
@@ -85,16 +85,22 @@ export default function OtherExpensesPage() {
     e.preventDefault()
     if (!category || !amount || !details) return
 
-    const expenseData = {
-      date: new Date().toISOString(),
-      category: category as Expense['category'],
-      amount: parseFloat(amount),
-      details,
-    }
-
     if (editingExpense) {
+      const expenseData = {
+        category: category as Expense['category'],
+        amount: parseFloat(amount),
+        details,
+      }
       setOtherExpenses(expenses => expenses.map(e => e.id === editingExpense.id ? { ...e, ...expenseData } : e))
     } else {
+      const now = new Date()
+      const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
+      const expenseData = {
+        date: transactionDate.toISOString(),
+        category: category as Expense['category'],
+        amount: parseFloat(amount),
+        details,
+      }
       setOtherExpenses(prev => [{ id: `e${Date.now()}`, ...expenseData }, ...prev])
     }
     

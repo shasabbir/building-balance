@@ -51,7 +51,7 @@ import {
 } from "@/components/ui/select"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
-import { isSameMonth } from "date-fns"
+import { isSameMonth, lastDayOfMonth } from "date-fns"
 
 
 export default function FamilyPaymentsPage() {
@@ -85,16 +85,22 @@ export default function FamilyPaymentsPage() {
     const member = familyMembers.find(m => m.id === selectedMemberId)
     if (!member) return
 
-    const payoutData = {
-      familyMemberId: selectedMemberId,
-      familyMemberName: member.name,
-      amount: parseFloat(amount),
-      date: new Date().toISOString(),
-    }
-
     if (editingPayout) {
+        const payoutData = {
+          familyMemberId: selectedMemberId,
+          familyMemberName: member.name,
+          amount: parseFloat(amount),
+        }
         setPayouts(payouts => payouts.map(p => p.id === editingPayout.id ? { ...p, ...payoutData } : p))
     } else {
+        const now = new Date()
+        const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
+        const payoutData = {
+          familyMemberId: selectedMemberId,
+          familyMemberName: member.name,
+          amount: parseFloat(amount),
+          date: transactionDate.toISOString(),
+        }
         setPayouts(prev => [{ id: `p${Date.now()}`, ...payoutData }, ...prev])
     }
 

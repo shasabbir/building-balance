@@ -51,7 +51,7 @@ import type { UtilityBill } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
-import { isSameMonth } from "date-fns"
+import { isSameMonth, lastDayOfMonth } from "date-fns"
 
 
 export default function UtilityBillsPage() {
@@ -85,16 +85,22 @@ export default function UtilityBillsPage() {
     e.preventDefault()
     if (!billType || !amount) return
 
-    const billData = {
-      date: new Date().toISOString(),
-      type: billType as UtilityBill['type'],
-      amount: parseFloat(amount),
-      notes,
-    }
-
     if (editingBill) {
+      const billData = {
+        type: billType as UtilityBill['type'],
+        amount: parseFloat(amount),
+        notes,
+      }
       setUtilityBills(bills => bills.map(b => b.id === editingBill.id ? { ...b, ...billData } : b))
     } else {
+      const now = new Date()
+      const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
+      const billData = {
+        date: transactionDate.toISOString(),
+        type: billType as UtilityBill['type'],
+        amount: parseFloat(amount),
+        notes,
+      }
       setUtilityBills(prev => [{ id: `b${Date.now()}`, ...billData }, ...prev])
     }
     

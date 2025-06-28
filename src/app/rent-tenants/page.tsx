@@ -52,7 +52,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
-import { isSameMonth } from "date-fns"
+import { isSameMonth, lastDayOfMonth } from "date-fns"
 
 
 export default function RentTenantsPage() {
@@ -142,20 +142,28 @@ export default function RentTenantsPage() {
     const renter = renters.find(r => r.id === selectedTenantId)
     if (!renter) return
 
-    const paymentData = {
-      renterId: selectedTenantId,
-      renterName: renter.name,
-      roomNumber: getRoomNumber(renter.roomId),
-      amount: parseFloat(paymentAmount),
-      date: new Date().toISOString(),
-    }
-
     if (editingPayment) {
+        const paymentData = {
+            renterId: selectedTenantId,
+            renterName: renter.name,
+            roomNumber: getRoomNumber(renter.roomId),
+            amount: parseFloat(paymentAmount),
+        }
         setRentPayments(payments => payments.map(p => p.id === editingPayment.id ? { ...p, ...paymentData } : p))
     } else {
+        const now = new Date()
+        const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
+        const paymentData = {
+          renterId: selectedTenantId,
+          renterName: renter.name,
+          roomNumber: getRoomNumber(renter.roomId),
+          amount: parseFloat(paymentAmount),
+          date: transactionDate.toISOString(),
+        }
         setRentPayments(prev => [{ id: `rp${Date.now()}`, ...paymentData }, ...prev])
     }
     setIsPaymentDialogOpen(false)
+    setEditingPayment(null)
   }
 
   // --- Room Logic ---
