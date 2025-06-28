@@ -16,6 +16,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
 import { utilityBills } from "@/lib/data"
 import type { UtilityBill } from "@/lib/types"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const BillTable = ({ bills }: { bills: UtilityBill[] }) => (
   <Table>
@@ -48,10 +66,54 @@ export default function UtilityBillsPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Utility Bills">
-        <Button size="sm" className="gap-1">
-          <PlusCircle className="h-4 w-4" />
-          Add Bill Payment
-        </Button>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button size="sm" className="gap-1">
+              <PlusCircle className="h-4 w-4" />
+              Add Bill Payment
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Bill Payment</DialogTitle>
+              <DialogDescription>
+                Record a new utility bill payment.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="type" className="text-right">
+                  Type
+                </Label>
+                <Select>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select bill type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Electricity">Electricity</SelectItem>
+                    <SelectItem value="Water">Water</SelectItem>
+                    <SelectItem value="Gas">Gas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="amount" className="text-right">
+                  Amount
+                </Label>
+                <Input id="amount" type="number" className="col-span-3" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="notes" className="text-right">
+                  Notes
+                </Label>
+                <Input id="notes" className="col-span-3" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit">Save Payment</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </PageHeader>
       <Tabs defaultValue="electricity">
         <TabsList className="grid w-full grid-cols-3">
