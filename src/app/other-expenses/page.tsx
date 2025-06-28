@@ -42,10 +42,24 @@ import { otherExpenses } from "@/lib/data"
 import { Badge } from "@/components/ui/badge"
 
 export default function OtherExpensesPage() {
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [category, setCategory] = React.useState("")
+  const [amount, setAmount] = React.useState("")
+  const [details, setDetails] = React.useState("")
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log("Expense saved:", { category, amount, details })
+    setCategory("")
+    setAmount("")
+    setDetails("")
+    setIsDialogOpen(false)
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Other Expenses">
-        <Dialog>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1">
               <PlusCircle className="h-4 w-4" />
@@ -53,44 +67,46 @@ export default function OtherExpensesPage() {
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Expense</DialogTitle>
-              <DialogDescription>
-                Record a new household, maintenance, or other expense.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">
-                  Category
-                </Label>
-                <Select>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="household">Household</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+            <form onSubmit={handleSubmit}>
+              <DialogHeader>
+                <DialogTitle>Add Expense</DialogTitle>
+                <DialogDescription>
+                  Record a new household, maintenance, or other expense.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="category" className="text-right">
+                    Category
+                  </Label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="household">Household</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="amount" className="text-right">
+                    Amount
+                  </Label>
+                  <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="details" className="text-right">
+                    Details
+                  </Label>
+                  <Input id="details" className="col-span-3" value={details} onChange={(e) => setDetails(e.target.value)} />
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  Amount
-                </Label>
-                <Input id="amount" type="number" className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="details" className="text-right">
-                  Details
-                </Label>
-                <Input id="details" className="col-span-3" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit">Save Expense</Button>
-            </DialogFooter>
+              <DialogFooter>
+                <Button type="submit">Save Expense</Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </PageHeader>

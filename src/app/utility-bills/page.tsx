@@ -63,10 +63,24 @@ export default function UtilityBillsPage() {
 
   const getTotal = (bills: UtilityBill[]) => bills.reduce((acc, bill) => acc + bill.amount, 0)
 
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [billType, setBillType] = React.useState("")
+  const [amount, setAmount] = React.useState("")
+  const [notes, setNotes] = React.useState("")
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log("Bill payment saved:", { billType, amount, notes })
+    setBillType("")
+    setAmount("")
+    setNotes("")
+    setIsDialogOpen(false)
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Utility Bills">
-        <Dialog>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1">
               <PlusCircle className="h-4 w-4" />
@@ -74,44 +88,46 @@ export default function UtilityBillsPage() {
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Bill Payment</DialogTitle>
-              <DialogDescription>
-                Record a new utility bill payment.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right">
-                  Type
-                </Label>
-                <Select>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select bill type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Electricity">Electricity</SelectItem>
-                    <SelectItem value="Water">Water</SelectItem>
-                    <SelectItem value="Gas">Gas</SelectItem>
-                  </SelectContent>
-                </Select>
+            <form onSubmit={handleSubmit}>
+              <DialogHeader>
+                <DialogTitle>Add Bill Payment</DialogTitle>
+                <DialogDescription>
+                  Record a new utility bill payment.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="type" className="text-right">
+                    Type
+                  </Label>
+                  <Select value={billType} onValueChange={setBillType}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select bill type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Electricity">Electricity</SelectItem>
+                      <SelectItem value="Water">Water</SelectItem>
+                      <SelectItem value="Gas">Gas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="amount" className="text-right">
+                    Amount
+                  </Label>
+                  <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="notes" className="text-right">
+                    Notes
+                  </Label>
+                  <Input id="notes" className="col-span-3" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  Amount
-                </Label>
-                <Input id="amount" type="number" className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="notes" className="text-right">
-                  Notes
-                </Label>
-                <Input id="notes" className="col-span-3" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit">Save Payment</Button>
-            </DialogFooter>
+              <DialogFooter>
+                <Button type="submit">Save Payment</Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </PageHeader>

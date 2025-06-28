@@ -48,11 +48,21 @@ const getRoomNumber = (roomId: string) => {
 export default function RentTenantsPage() {
   const [selectedTenant, setSelectedTenant] = React.useState("")
   const [amount, setAmount] = React.useState("")
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log("Rent payment saved:", { selectedTenant, amount })
+    // Here you would typically handle the form submission, e.g., send to an API
+    setSelectedTenant("")
+    setAmount("")
+    setIsDialogOpen(false)
+  }
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Rent & Tenants">
-        <Dialog>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1">
               <PlusCircle className="h-4 w-4" />
@@ -60,40 +70,42 @@ export default function RentTenantsPage() {
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Rent Payment</DialogTitle>
-              <DialogDescription>
-                Record a new rent payment from a tenant.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="tenant" className="text-right">
-                  Tenant
-                </Label>
-                <Select value={selectedTenant} onValueChange={setSelectedTenant}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select a tenant" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {renters.map((renter) => (
-                      <SelectItem key={renter.id} value={renter.id}>
-                        {renter.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <form onSubmit={handleSubmit}>
+              <DialogHeader>
+                <DialogTitle>Add Rent Payment</DialogTitle>
+                <DialogDescription>
+                  Record a new rent payment from a tenant.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="tenant" className="text-right">
+                    Tenant
+                  </Label>
+                  <Select value={selectedTenant} onValueChange={setSelectedTenant}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select a tenant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {renters.map((renter) => (
+                        <SelectItem key={renter.id} value={renter.id}>
+                          {renter.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="amount" className="text-right">
+                    Amount Paid
+                  </Label>
+                  <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  Amount Paid
-                </Label>
-                <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit">Save Payment</Button>
-            </DialogFooter>
+              <DialogFooter>
+                <Button type="submit">Save Payment</Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </PageHeader>

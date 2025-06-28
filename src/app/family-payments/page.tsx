@@ -44,11 +44,21 @@ import {
 export default function FamilyPaymentsPage() {
   const [selectedMember, setSelectedMember] = React.useState("")
   const [amount, setAmount] = React.useState("")
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    console.log("Payout saved:", { selectedMember, amount })
+    // Here you would typically handle the form submission, e.g., send to an API
+    setSelectedMember("")
+    setAmount("")
+    setIsDialogOpen(false)
+  }
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Family Payments">
-        <Dialog>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1">
               <PlusCircle className="h-4 w-4" />
@@ -56,40 +66,42 @@ export default function FamilyPaymentsPage() {
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Payout</DialogTitle>
-              <DialogDescription>
-                Record a new payment made to a family member.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Member
-                </Label>
-                <Select value={selectedMember} onValueChange={setSelectedMember}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select a member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {familyMembers.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <form onSubmit={handleSubmit}>
+              <DialogHeader>
+                <DialogTitle>Add Payout</DialogTitle>
+                <DialogDescription>
+                  Record a new payment made to a family member.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Member
+                  </Label>
+                  <Select value={selectedMember} onValueChange={setSelectedMember}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select a member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {familyMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="amount" className="text-right">
+                    Amount Paid
+                  </Label>
+                  <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  Amount Paid
-                </Label>
-                <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit">Save Payout</Button>
-            </DialogFooter>
+              <DialogFooter>
+                <Button type="submit">Save Payout</Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </PageHeader>
