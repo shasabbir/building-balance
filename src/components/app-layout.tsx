@@ -3,10 +3,12 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Users, Receipt, ShoppingCart, Settings, PanelLeft, LayoutDashboard } from "lucide-react"
+import { Home, Users, Receipt, ShoppingCart, Settings, PanelLeft, LayoutDashboard, ChevronLeft, ChevronRight } from "lucide-react"
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { BuildingIcon } from "./icons"
+import { useDate } from "@/contexts/date-context"
+import { format, subMonths, addMonths } from "date-fns"
 
 const menuItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -19,6 +21,15 @@ const menuItems = [
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { selectedDate, setSelectedDate } = useDate()
+
+  const handlePrevMonth = () => {
+    setSelectedDate(subMonths(selectedDate, 1))
+  }
+
+  const handleNextMonth = () => {
+    setSelectedDate(addMonths(selectedDate, 1))
+  }
 
   return (
     <SidebarProvider>
@@ -53,6 +64,19 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
             <SidebarTrigger className="md:hidden" />
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrevMonth}>
+                <ChevronLeft className="h-4 w-4" />
+                <span className="sr-only">Previous Month</span>
+              </Button>
+              <span className="font-semibold text-lg w-32 text-center">
+                {format(selectedDate, "MMMM yyyy")}
+              </span>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleNextMonth}>
+                <ChevronRight className="h-4 w-4" />
+                <span className="sr-only">Next Month</span>
+              </Button>
+            </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </SidebarInset>

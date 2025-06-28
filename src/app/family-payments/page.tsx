@@ -40,7 +40,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
-import { familyMembers, payouts as initialPayouts } from "@/lib/data"
 import type { Payout } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -50,9 +49,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useData } from "@/contexts/data-context"
+import { useDate } from "@/contexts/date-context"
+import { isSameMonth } from "date-fns"
+
 
 export default function FamilyPaymentsPage() {
-  const [payouts, setPayouts] = React.useState<Payout[]>(initialPayouts)
+  const { payouts, setPayouts, familyMembers } = useData()
+  const { selectedDate } = useDate()
+
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [editingPayout, setEditingPayout] = React.useState<Payout | null>(null)
   const [payoutToDelete, setPayoutToDelete] = React.useState<Payout | null>(null)
@@ -88,7 +93,7 @@ export default function FamilyPaymentsPage() {
     }
 
     if (editingPayout) {
-        setPayouts(payouts.map(p => p.id === editingPayout.id ? { ...p, ...payoutData } : p))
+        setPayouts(payouts => payouts.map(p => p.id === editingPayout.id ? { ...p, ...payoutData } : p))
     } else {
         setPayouts(prev => [{ id: `p${Date.now()}`, ...payoutData }, ...prev])
     }
@@ -98,27 +103,28 @@ export default function FamilyPaymentsPage() {
   }
 
   const handleDelete = (payout: Payout) => {
-      setPayouts(payouts.filter(p => p.id !== payout.id))
+      setPayouts(payouts => payouts.filter(p => p.id !== payout.id))
       setPayoutToDelete(null)
   }
 
   const familyMembersWithSummary = React.useMemo(() => {
     return familyMembers.map(member => {
-      const memberPayouts = payouts.filter(p => p.familyMemberId === member.id)
-      const paid = memberPayouts.reduce((acc, p) => acc + p.amount, 0)
+      const memberPayoutsThisMonth = payouts.filter(p => p.familyMemberId === member.id && isSameMonth(new Date(p.date), selectedDate))
+      const paid = memberPayoutsThisMonth.reduce((acc, p) => acc + p.amount, 0)
       const payable = member.expected - paid
       return {
         ...member,
         paid,
         payable: payable > 0 ? payable : 0,
-        // NOTE: Cumulative payable is not calculated dynamically from history
       }
     })
-  }, [payouts])
+  }, [payouts, familyMembers, selectedDate])
   
-  const sortedPayouts = React.useMemo(() => {
-    return [...payouts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [payouts])
+  const monthlyPayouts = React.useMemo(() => {
+    return payouts
+        .filter(payout => isSameMonth(new Date(payout.date), selectedDate))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [payouts, selectedDate])
 
   return (
     <div className="flex flex-col gap-8">
@@ -140,9 +146,9 @@ export default function FamilyPaymentsPage() {
               <TableRow>
                 <TableHead>Member Name</TableHead>
                 <TableHead className="text-right">Expected</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
+                <TableHead className="text-right">Paid This Month</TableHead>
                 <TableHead className="text-right">This Month Payable</TableHead>
-                <TableHead className="text-right">Total Payable</TableHead>
+                <TableHead className="text-right">Total Payable (All Time)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -168,44 +174,48 @@ export default function FamilyPaymentsPage() {
       
       <Card>
         <CardHeader>
-            <CardTitle>Payout History</CardTitle>
-            <CardDescription>Full list of all payouts made.</CardDescription>
+            <CardTitle>Payout History for this Month</CardTitle>
+            <CardDescription>Full list of all payouts made this month.</CardDescription>
         </CardHeader>
         <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Member Name</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead><span className="sr-only">Actions</span></TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {sortedPayouts.map((payout) => (
-                        <TableRow key={payout.id}>
-                            <TableCell>{new Date(payout.date).toLocaleDateString()}</TableCell>
-                            <TableCell className="font-medium">{payout.familyMemberName}</TableCell>
-                            <TableCell className="text-right">৳{payout.amount.toLocaleString()}</TableCell>
-                            <TableCell>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                        <span className="sr-only">Toggle menu</span>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuItem onSelect={() => openDialog(payout)}>Edit</DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => setPayoutToDelete(payout)} className="text-red-600">Delete</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </TableCell>
+            {monthlyPayouts.length > 0 ? (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Member Name</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead><span className="sr-only">Actions</span></TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+                    </TableHeader>
+                    <TableBody>
+                        {monthlyPayouts.map((payout) => (
+                            <TableRow key={payout.id}>
+                                <TableCell>{new Date(payout.date).toLocaleDateString()}</TableCell>
+                                <TableCell className="font-medium">{payout.familyMemberName}</TableCell>
+                                <TableCell className="text-right">৳{payout.amount.toLocaleString()}</TableCell>
+                                <TableCell>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                            <span className="sr-only">Toggle menu</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem onSelect={() => openDialog(payout)}>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setPayoutToDelete(payout)} className="text-red-600">Delete</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            ) : (
+                <div className="text-center text-muted-foreground p-8">No payouts this month.</div>
+            )}
         </CardContent>
       </Card>
       

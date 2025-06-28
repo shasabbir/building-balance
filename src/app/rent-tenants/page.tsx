@@ -40,7 +40,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
-import { renters as initialRenters, rooms as initialRooms, rentPayments as initialRentPayments } from "@/lib/data"
 import type { Renter, RentPayment, Room } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -51,13 +50,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { useData } from "@/contexts/data-context"
+import { useDate } from "@/contexts/date-context"
+import { isSameMonth } from "date-fns"
 
 
 export default function RentTenantsPage() {
   const { toast } = useToast()
-  const [renters, setRenters] = React.useState<Renter[]>(initialRenters)
-  const [rentPayments, setRentPayments] = React.useState<RentPayment[]>(initialRentPayments)
-  const [rooms, setRooms] = React.useState<Room[]>(initialRooms)
+  const { renters, setRenters, rentPayments, setRentPayments, rooms, setRooms } = useData()
+  const { selectedDate } = useDate()
   
   // Dialog states
   const [isRenterDialogOpen, setIsRenterDialogOpen] = React.useState(false)
@@ -110,11 +111,11 @@ export default function RentTenantsPage() {
       name: renterName,
       roomId: renterRoomId,
       rentDue: parseFloat(renterRentDue),
-      cumulativePayable: editingRenter ? editingRenter.cumulativePayable : 0,
+      cumulativePayable: editingRenter ? editingRenter.cumulativePayable : 0, // This could be recalculated
     }
 
     if (editingRenter) {
-      setRenters(renters.map(r => r.id === editingRenter.id ? { ...r, ...renterData } : r))
+      setRenters(renters => renters.map(r => r.id === editingRenter.id ? { ...r, ...renterData } : r))
     } else {
       setRenters(prev => [{ id: `t${Date.now()}`, ...renterData }, ...prev])
     }
@@ -150,7 +151,7 @@ export default function RentTenantsPage() {
     }
 
     if (editingPayment) {
-        setRentPayments(rentPayments.map(p => p.id === editingPayment.id ? { ...p, ...paymentData } : p))
+        setRentPayments(payments => payments.map(p => p.id === editingPayment.id ? { ...p, ...paymentData } : p))
     } else {
         setRentPayments(prev => [{ id: `rp${Date.now()}`, ...paymentData }, ...prev])
     }
@@ -180,7 +181,7 @@ export default function RentTenantsPage() {
     }
 
     if (editingRoom) {
-        setRooms(rooms.map(r => r.id === editingRoom.id ? { ...r, ...roomData } : r))
+        setRooms(rooms => rooms.map(r => r.id === editingRoom.id ? { ...r, ...roomData } : r))
     } else {
         setRooms(prev => [{ id: `r${Date.now()}`, ...roomData }, ...prev])
     }
@@ -192,10 +193,10 @@ export default function RentTenantsPage() {
     if (!itemToDelete) return
     if (itemToDelete.type === 'renter') {
       // Also delete associated payments
-      setRentPayments(rentPayments.filter(p => p.renterId !== itemToDelete.id))
-      setRenters(renters.filter(r => r.id !== itemToDelete.id))
+      setRentPayments(payments => payments.filter(p => p.renterId !== itemToDelete.id))
+      setRenters(renters => renters.filter(r => r.id !== itemToDelete.id))
     } else if (itemToDelete.type === 'payment') {
-      setRentPayments(rentPayments.filter(p => p.id !== itemToDelete.id))
+      setRentPayments(payments => payments.filter(p => p.id !== itemToDelete.id))
     } else if (itemToDelete.type === 'room') {
       const isOccupied = renters.some(r => r.roomId === itemToDelete.id)
       if (isOccupied) {
@@ -207,7 +208,7 @@ export default function RentTenantsPage() {
         setItemToDelete(null)
         return
       }
-      setRooms(rooms.filter(r => r.id !== itemToDelete.id))
+      setRooms(rooms => rooms.filter(r => r.id !== itemToDelete.id))
     }
     setItemToDelete(null)
   }
@@ -229,21 +230,23 @@ export default function RentTenantsPage() {
   // --- Memoized Calculations ---
   const rentersWithSummary = React.useMemo(() => {
     return renters.map(renter => {
-      const renterPayments = rentPayments.filter(p => p.renterId === renter.id)
-      const rentPaid = renterPayments.reduce((acc, p) => acc + p.amount, 0)
-      const payable = renter.rentDue - rentPaid
+      const renterPaymentsThisMonth = rentPayments.filter(p => p.renterId === renter.id && isSameMonth(new Date(p.date), selectedDate))
+      const rentPaidThisMonth = renterPaymentsThisMonth.reduce((acc, p) => acc + p.amount, 0)
+      const payableThisMonth = renter.rentDue - rentPaidThisMonth
       return {
         ...renter,
-        rentPaid,
-        payable: payable > 0 ? payable : 0,
+        rentPaidThisMonth,
+        payableThisMonth: payableThisMonth > 0 ? payableThisMonth : 0,
         // NOTE: Cumulative payable is not calculated dynamically from history
       }
     }).sort((a,b) => parseInt(getRoomNumber(a.roomId)) - parseInt(getRoomNumber(b.roomId)));
-  }, [renters, rentPayments, rooms])
+  }, [renters, rentPayments, rooms, selectedDate])
   
-  const sortedRentPayments = React.useMemo(() => {
-      return [...rentPayments].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [rentPayments])
+  const monthlyRentPayments = React.useMemo(() => {
+      return rentPayments
+        .filter(payment => isSameMonth(new Date(payment.date), selectedDate))
+        .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [rentPayments, selectedDate])
 
   const sortedRooms = React.useMemo(() => {
     return [...rooms].sort((a,b) => parseInt(a.number) - parseInt(b.number));
@@ -273,7 +276,7 @@ export default function RentTenantsPage() {
         <CardHeader>
           <CardTitle>Rent Collection Status</CardTitle>
           <CardDescription>
-            Monthly rent status for all tenants.
+            Monthly rent status for all tenants for the selected month.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -285,7 +288,7 @@ export default function RentTenantsPage() {
                 <TableHead className="text-right">Rent Due</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
                 <TableHead className="text-right">This Month Payable</TableHead>
-                <TableHead className="text-right">Total Payable</TableHead>
+                <TableHead className="text-right">Total Payable (All Time)</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -297,10 +300,10 @@ export default function RentTenantsPage() {
                   <TableCell><Badge variant="secondary">{getRoomNumber(renter.roomId)}</Badge></TableCell>
                   <TableCell className="font-medium">{renter.name}</TableCell>
                   <TableCell className="text-right">৳{renter.rentDue.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">৳{renter.rentPaid.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">৳{renter.rentPaidThisMonth.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
-                    {renter.payable > 0 ? (
-                      <Badge variant="destructive">৳{renter.payable.toLocaleString()}</Badge>
+                    {renter.payableThisMonth > 0 ? (
+                      <Badge variant="destructive">৳{renter.payableThisMonth.toLocaleString()}</Badge>
                     ) : (
                       '৳0'
                     )}
@@ -327,6 +330,56 @@ export default function RentTenantsPage() {
           </Table>
         </CardContent>
       </Card>
+      
+      {/* Rent Payment History Table */}
+      <Card>
+        <CardHeader>
+            <CardTitle>Rent Payment History for this Month</CardTitle>
+            <CardDescription>Full list of all rent payments received this month.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {monthlyRentPayments.length > 0 ? (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Room</TableHead>
+                            <TableHead>Renter</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead><span className="sr-only">Actions</span></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {monthlyRentPayments.map((payment) => (
+                            <TableRow key={payment.id}>
+                                <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
+                                <TableCell><Badge variant="outline">{payment.roomNumber}</Badge></TableCell>
+                                <TableCell className="font-medium">{payment.renterName}</TableCell>
+                                <TableCell className="text-right">৳{payment.amount.toLocaleString()}</TableCell>
+                                <TableCell>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                            <span className="sr-only">Toggle menu</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem onSelect={() => openPaymentDialog(payment)}>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setItemToDelete({type: 'payment', id: payment.id})} className="text-red-600">Delete</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            ) : (
+                <div className="text-center text-muted-foreground p-8">No rent payments this month.</div>
+            )}
+        </CardContent>
+      </Card>
 
       {/* Rooms Table */}
       <Card>
@@ -341,6 +394,7 @@ export default function RentTenantsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Room Number</TableHead>
+                <TableHead>Occupant</TableHead>
                 <TableHead className="text-right">Rent Amount</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
@@ -348,75 +402,32 @@ export default function RentTenantsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedRooms.map((room) => (
-                <TableRow key={room.id}>
-                  <TableCell className="font-medium">{room.number}</TableCell>
-                  <TableCell className="text-right">৳{room.rentAmount.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => openRoomDialog(room)}>Edit Room</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setItemToDelete({type: 'room', id: room.id})} className="text-red-600">Delete Room</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {sortedRooms.map((room) => {
+                const occupant = renters.find(r => r.roomId === room.id);
+                return (
+                    <TableRow key={room.id}>
+                        <TableCell className="font-medium">{room.number}</TableCell>
+                        <TableCell>{occupant ? occupant.name : <span className="text-muted-foreground">Vacant</span>}</TableCell>
+                        <TableCell className="text-right">৳{room.rentAmount.toLocaleString()}</TableCell>
+                        <TableCell>
+                            <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onSelect={() => openRoomDialog(room)}>Edit Room</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setItemToDelete({type: 'room', id: room.id})} className="text-red-600">Delete Room</DropdownMenuItem>
+                            </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                    </TableRow>
+                )})}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-      
-      {/* Rent Payment History Table */}
-      <Card>
-        <CardHeader>
-            <CardTitle>Rent Payment History</CardTitle>
-            <CardDescription>Full list of all rent payments received.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Room</TableHead>
-                        <TableHead>Renter</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead><span className="sr-only">Actions</span></TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {sortedRentPayments.map((payment) => (
-                        <TableRow key={payment.id}>
-                            <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
-                            <TableCell><Badge variant="outline">{payment.roomNumber}</Badge></TableCell>
-                            <TableCell className="font-medium">{payment.renterName}</TableCell>
-                            <TableCell className="text-right">৳{payment.amount.toLocaleString()}</TableCell>
-                            <TableCell>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                        <span className="sr-only">Toggle menu</span>
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuItem onSelect={() => openPaymentDialog(payment)}>Edit</DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={() => setItemToDelete({type: 'payment', id: payment.id})} className="text-red-600">Delete</DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
         </CardContent>
       </Card>
 
@@ -442,11 +453,15 @@ export default function RentTenantsPage() {
                             <SelectValue placeholder="Select a room" />
                         </SelectTrigger>
                         <SelectContent>
-                        {rooms.map((room) => (
-                            <SelectItem key={room.id} value={room.id} disabled={!editingRenter && renters.some(r => r.roomId === room.id)}>
-                                {room.number}
-                            </SelectItem>
-                        ))}
+                        {rooms.map((room) => {
+                            const occupant = renters.find(r => r.roomId === room.id);
+                            const isOccupiedByOther = occupant && occupant.id !== editingRenter?.id;
+                            return (
+                                <SelectItem key={room.id} value={room.id} disabled={isOccupiedByOther}>
+                                    {room.number} {isOccupiedByOther ? `(Occupied by ${occupant.name})` : ''}
+                                </SelectItem>
+                            )
+                        })}
                         </SelectContent>
                     </Select>
                 </div>

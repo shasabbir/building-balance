@@ -1,6 +1,6 @@
 "use client"
 import * as React from "react"
-import { DollarSign, Users, Home, Receipt, Wallet, TrendingUp, TrendingDown } from 'lucide-react'
+import { DollarSign, Users, Home, Receipt, Wallet, TrendingUp, TrendingDown, Repeat } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -12,38 +12,98 @@ import {
 } from "@/components/ui/table"
 import { PageHeader } from '@/components/page-header'
 import { Badge } from "@/components/ui/badge"
+import { useData } from "@/contexts/data-context"
+import { useDate } from "@/contexts/date-context"
+import { isSameMonth, subMonths } from 'date-fns'
+import type { Renter, RentPayment, FamilyMember, Payout, UtilityBill, Expense } from "@/lib/types"
 
-const summaryData = {
-  rent: { expected: 25000, collected: 22000, payable: 3000 },
-  payouts: { expected: 15000, paid: 13000, payable: 2000 },
-  bills: 5500,
-  expenses: 1200,
-}
+const calculateMonthlySummary = (
+  targetDate: Date,
+  allRenters: Renter[],
+  allRentPayments: RentPayment[],
+  allFamilyMembers: FamilyMember[],
+  allPayouts: Payout[],
+  allBills: UtilityBill[],
+  allExpenses: Expense[]
+) => {
+  // Filter transactions for the target month
+  const monthlyRentPayments = allRentPayments.filter(p => isSameMonth(new Date(p.date), targetDate));
+  const monthlyPayouts = allPayouts.filter(p => isSameMonth(new Date(p.date), targetDate));
+  const monthlyBills = allBills.filter(b => isSameMonth(new Date(b.date), targetDate));
+  const monthlyExpenses = allExpenses.filter(e => isSameMonth(new Date(e.date), targetDate));
+  
+  // Calculate totals for the month
+  const rentCollected = monthlyRentPayments.reduce((sum, p) => sum + p.amount, 0);
+  const payoutsPaid = monthlyPayouts.reduce((sum, p) => sum + p.amount, 0);
+  const billsPaid = monthlyBills.reduce((sum, b) => sum + b.amount, 0);
+  const expensesPaid = monthlyExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-const finalBalance = summaryData.rent.collected - (summaryData.payouts.paid + summaryData.bills + summaryData.expenses);
+  // Calculate expected totals (these are constant per month in this model)
+  const rentExpected = allRenters.reduce((sum, r) => sum + r.rentDue, 0);
+  const rentPayable = rentExpected - rentCollected;
+  
+  const payoutsExpected = allFamilyMembers.reduce((sum, m) => sum + m.expected, 0);
+  const payoutsPayable = payoutsExpected - payoutsPaid;
+  
+  const totalIncome = rentCollected;
+  const totalOutgoing = payoutsPaid + billsPaid + expensesPaid;
+  const balance = totalIncome - totalOutgoing;
 
-const recentActivities = [
-  { type: "Rent", description: "Room 101 Paid", amount: 5000, status: "collected" },
-  { type: "Payout", description: "Paid to Sumon", amount: 4000, status: "paid" },
-  { type: "Bill", description: "Electricity Bill", amount: 2500, status: "paid" },
-  { type: "Expense", description: "Maintenance work", amount: 800, status: "paid" },
-  { type: "Rent", description: "Room 102 Pending", amount: 6000, status: "pending" },
-];
-
+  return {
+    rent: { collected: rentCollected, expected: rentExpected, payable: rentPayable > 0 ? rentPayable : 0 },
+    payouts: { paid: payoutsPaid, expected: payoutsExpected, payable: payoutsPayable > 0 ? payoutsPayable : 0 },
+    bills: billsPaid,
+    expenses: expensesPaid,
+    totalIncome,
+    totalOutgoing,
+    balance,
+  };
+};
 
 export default function Dashboard() {
+  const { selectedDate } = useDate()
+  const { renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses } = useData()
+
+  const previousMonth = subMonths(selectedDate, 1)
+
+  const previousMonthSummary = calculateMonthlySummary(previousMonth, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses)
+  const currentMonthSummary = calculateMonthlySummary(selectedDate, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses)
+
+  const carryOver = previousMonthSummary.balance
+  const finalBalance = carryOver + currentMonthSummary.balance
+
+  const recentActivities = React.useMemo(() => {
+    const activities = [
+        ...rentPayments.filter(p => isSameMonth(new Date(p.date), selectedDate)).map(p => ({ type: 'Rent', description: `${p.renterName} Paid`, amount: p.amount, date: p.date, status: 'collected' as const })),
+        ...payouts.filter(p => isSameMonth(new Date(p.date), selectedDate)).map(p => ({ type: 'Payout', description: `Paid to ${p.familyMemberName}`, amount: p.amount, date: p.date, status: 'paid' as const })),
+        ...utilityBills.filter(b => isSameMonth(new Date(b.date), selectedDate)).map(b => ({ type: 'Bill', description: `${b.type} Bill`, amount: b.amount, date: b.date, status: 'paid' as const })),
+        ...otherExpenses.filter(e => isSameMonth(new Date(e.date), selectedDate)).map(e => ({ type: 'Expense', description: e.details, amount: e.amount, date: e.date, status: 'paid' as const }))
+    ];
+    return activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
+  }, [rentPayments, payouts, utilityBills, otherExpenses, selectedDate]);
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Monthly Summary" />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Rent Collected</CardTitle>
+            <CardTitle className="text-sm font-medium">Carry Over</CardTitle>
+            <Repeat className={`h-4 w-4 ${carryOver >= 0 ? "text-muted-foreground" : "text-red-600"}`} />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${carryOver < 0 && "text-red-600"}`}>৳{carryOver.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">From last month</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Rent Collected</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">৳{summaryData.rent.collected.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Expected: ৳{summaryData.rent.expected.toLocaleString()}</p>
+            <div className="text-2xl font-bold">৳{currentMonthSummary.rent.collected.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Expected: ৳{currentMonthSummary.rent.expected.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
@@ -52,30 +112,30 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">৳{summaryData.payouts.paid.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Expected: ৳{summaryData.payouts.expected.toLocaleString()}</p>
+            <div className="text-2xl font-bold">৳{currentMonthSummary.payouts.paid.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Expected: ৳{currentMonthSummary.payouts.expected.toLocaleString()}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Bills & Expenses</CardTitle>
+            <CardTitle className="text-sm font-medium">Bills & Expenses</CardTitle>
             <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">৳{(summaryData.bills + summaryData.expenses).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Bills: ৳{summaryData.bills.toLocaleString()}</p>
+            <div className="text-2xl font-bold">৳{(currentMonthSummary.bills + currentMonthSummary.expenses).toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Bills: ৳{currentMonthSummary.bills.toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className={finalBalance > 0 ? "border-green-500/50" : "border-red-500/50"}>
+        <Card className={finalBalance >= 0 ? "border-green-500/50" : "border-red-500/50"}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Final Balance</CardTitle>
-            <Wallet className={`h-4 w-4 ${finalBalance > 0 ? "text-green-600" : "text-red-600"}`} />
+            <Wallet className={`h-4 w-4 ${finalBalance >= 0 ? "text-green-600" : "text-red-600"}`} />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${finalBalance > 0 ? "text-green-600" : "text-red-600"}`}>
+            <div className={`text-2xl font-bold ${finalBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
               ৳{finalBalance.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">This month's net cash flow</p>
+            <p className="text-xs text-muted-foreground">Incl. carry over</p>
           </CardContent>
         </Card>
       </div>
@@ -86,26 +146,30 @@ export default function Dashboard() {
             <CardTitle>Recent Activity</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentActivities.map((activity, index) => (
-                   <TableRow key={index}>
-                    <TableCell>
-                      <Badge variant={activity.status === 'pending' ? 'destructive' : 'secondary'} className="capitalize">{activity.type}</Badge>
-                    </TableCell>
-                    <TableCell>{activity.description}</TableCell>
-                    <TableCell className="text-right font-medium">৳{activity.amount.toLocaleString()}</TableCell>
-                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {recentActivities.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recentActivities.map((activity, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <Badge variant={activity.status === 'pending' ? 'destructive' : 'secondary'} className="capitalize">{activity.type}</Badge>
+                      </TableCell>
+                      <TableCell>{activity.description}</TableCell>
+                      <TableCell className="text-right font-medium">৳{activity.amount.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center text-muted-foreground p-8">No activity this month.</div>
+            )}
           </CardContent>
         </Card>
         <Card className="lg:col-span-3">
@@ -119,7 +183,7 @@ export default function Dashboard() {
                </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Income</p>
-                <p className="text-lg font-bold">৳{summaryData.rent.collected.toLocaleString()}</p>
+                <p className="text-lg font-bold">৳{currentMonthSummary.totalIncome.toLocaleString()}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -128,7 +192,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Outgoing</p>
-                <p className="text-lg font-bold">৳{(summaryData.payouts.paid + summaryData.bills + summaryData.expenses).toLocaleString()}</p>
+                <p className="text-lg font-bold">৳{currentMonthSummary.totalOutgoing.toLocaleString()}</p>
               </div>
             </div>
              <div className="flex items-center gap-4">
@@ -137,7 +201,7 @@ export default function Dashboard() {
                 </div>
                <div>
                  <p className="text-sm text-muted-foreground">Rent Payable</p>
-                 <p className="text-lg font-bold">৳{summaryData.rent.payable.toLocaleString()}</p>
+                 <p className="text-lg font-bold">৳{currentMonthSummary.rent.payable.toLocaleString()}</p>
                </div>
              </div>
              <div className="flex items-center gap-4">
@@ -146,7 +210,7 @@ export default function Dashboard() {
                 </div>
                <div>
                  <p className="text-sm text-muted-foreground">Family Payouts Payable</p>
-                 <p className="text-lg font-bold">৳{summaryData.payouts.payable.toLocaleString()}</p>
+                 <p className="text-lg font-bold">৳{currentMonthSummary.payouts.payable.toLocaleString()}</p>
                </div>
              </div>
           </CardContent>

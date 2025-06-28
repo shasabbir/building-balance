@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { AppLayout } from '@/components/app-layout';
 import { Toaster } from "@/components/ui/toaster";
+import { DateProvider } from '@/contexts/date-context';
+import { DataProvider } from '@/contexts/data-context';
 
 export const metadata: Metadata = {
   title: 'Building Balance',
@@ -21,9 +23,13 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <AppLayout>
-          {children}
-        </AppLayout>
+        <DateProvider>
+          <DataProvider>
+            <AppLayout>
+              {children}
+            </AppLayout>
+          </DataProvider>
+        </DateProvider>
         <Toaster />
       </body>
     </html>

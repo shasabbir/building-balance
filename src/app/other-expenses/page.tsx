@@ -47,12 +47,17 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
-import { otherExpenses as initialExpenses } from "@/lib/data"
 import type { Expense } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
+import { useData } from "@/contexts/data-context"
+import { useDate } from "@/contexts/date-context"
+import { isSameMonth } from "date-fns"
+
 
 export default function OtherExpensesPage() {
-  const [expenses, setExpenses] = React.useState<Expense[]>(initialExpenses)
+  const { otherExpenses, setOtherExpenses } = useData()
+  const { selectedDate } = useDate()
+
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [editingExpense, setEditingExpense] = React.useState<Expense | null>(null)
   const [expenseToDelete, setExpenseToDelete] = React.useState<Expense | null>(null)
@@ -88,9 +93,9 @@ export default function OtherExpensesPage() {
     }
 
     if (editingExpense) {
-      setExpenses(expenses.map(e => e.id === editingExpense.id ? { ...e, ...expenseData } : e))
+      setOtherExpenses(expenses => expenses.map(e => e.id === editingExpense.id ? { ...e, ...expenseData } : e))
     } else {
-      setExpenses(prev => [{ id: `e${Date.now()}`, ...expenseData }, ...prev])
+      setOtherExpenses(prev => [{ id: `e${Date.now()}`, ...expenseData }, ...prev])
     }
     
     setIsDialogOpen(false)
@@ -98,17 +103,19 @@ export default function OtherExpensesPage() {
   }
   
   const handleDelete = (expense: Expense) => {
-    setExpenses(expenses.filter(e => e.id !== expense.id))
+    setOtherExpenses(expenses => expenses.filter(e => e.id !== expense.id))
     setExpenseToDelete(null)
   }
 
-  const sortedExpenses = React.useMemo(() => {
-    return [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [expenses])
+  const monthlyExpenses = React.useMemo(() => {
+    return otherExpenses
+        .filter(expense => isSameMonth(new Date(expense.date), selectedDate))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [otherExpenses, selectedDate])
   
   const totalExpenses = React.useMemo(() => {
-      return expenses.reduce((total, expense) => total + expense.amount, 0)
-  }, [expenses])
+      return monthlyExpenses.reduce((total, expense) => total + expense.amount, 0)
+  }, [monthlyExpenses])
 
   return (
     <div className="flex flex-col gap-8">
@@ -122,51 +129,55 @@ export default function OtherExpensesPage() {
         <CardHeader className="flex flex-row items-center justify-between">
             <div>
                 <CardTitle>Expense Log</CardTitle>
-                <CardDescription>A list of all miscellaneous expenses.</CardDescription>
+                <CardDescription>A list of all miscellaneous expenses for this month.</CardDescription>
             </div>
             <div className="text-2xl font-bold">Total: ৳{totalExpenses.toLocaleString()}</div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Details</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedExpenses.map((expense) => (
-                <TableRow key={expense.id}>
-                  <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{expense.category}</Badge>
-                  </TableCell>
-                  <TableCell className="font-medium">{expense.details}</TableCell>
-                  <TableCell className="text-right">৳{expense.amount.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => openDialog(expense)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setExpenseToDelete(expense)} className="text-red-600">Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {monthlyExpenses.length > 0 ? (
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>
+                    <span className="sr-only">Actions</span>
+                    </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {monthlyExpenses.map((expense) => (
+                    <TableRow key={expense.id}>
+                    <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                        <Badge variant="outline">{expense.category}</Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">{expense.details}</TableCell>
+                    <TableCell className="text-right">৳{expense.amount.toLocaleString()}</TableCell>
+                    <TableCell>
+                        <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onSelect={() => openDialog(expense)}>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setExpenseToDelete(expense)} className="text-red-600">Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center text-muted-foreground p-8">No expenses this month.</div>
+          )}
         </CardContent>
       </Card>
       

@@ -47,12 +47,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { PageHeader } from "@/components/page-header"
-import { utilityBills as initialBills } from "@/lib/data"
 import type { UtilityBill } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
+import { useData } from "@/contexts/data-context"
+import { useDate } from "@/contexts/date-context"
+import { isSameMonth } from "date-fns"
+
 
 export default function UtilityBillsPage() {
-  const [bills, setBills] = React.useState<UtilityBill[]>(initialBills)
+  const { utilityBills, setUtilityBills } = useData()
+  const { selectedDate } = useDate()
+
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [editingBill, setEditingBill] = React.useState<UtilityBill | null>(null)
   const [billToDelete, setBillToDelete] = React.useState<UtilityBill | null>(null)
@@ -88,9 +93,9 @@ export default function UtilityBillsPage() {
     }
 
     if (editingBill) {
-      setBills(bills.map(b => b.id === editingBill.id ? { ...b, ...billData } : b))
+      setUtilityBills(bills => bills.map(b => b.id === editingBill.id ? { ...b, ...billData } : b))
     } else {
-      setBills(prev => [{ id: `b${Date.now()}`, ...billData }, ...prev])
+      setUtilityBills(prev => [{ id: `b${Date.now()}`, ...billData }, ...prev])
     }
     
     setIsDialogOpen(false)
@@ -98,17 +103,19 @@ export default function UtilityBillsPage() {
   }
   
   const handleDelete = (bill: UtilityBill) => {
-      setBills(bills.filter(b => b.id !== bill.id))
+      setUtilityBills(bills => bills.filter(b => b.id !== bill.id))
       setBillToDelete(null)
   }
 
-  const sortedBills = React.useMemo(() => {
-    return [...bills].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [bills])
+  const monthlyBills = React.useMemo(() => {
+    return utilityBills
+      .filter(bill => isSameMonth(new Date(bill.date), selectedDate))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [utilityBills, selectedDate])
   
   const totalAmount = React.useMemo(() => {
-    return bills.reduce((acc, bill) => acc + bill.amount, 0)
-  }, [bills])
+    return monthlyBills.reduce((acc, bill) => acc + bill.amount, 0)
+  }, [monthlyBills])
 
   return (
     <div className="flex flex-col gap-8">
@@ -122,50 +129,54 @@ export default function UtilityBillsPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>All Utility Bills</CardTitle>
-            <CardDescription>A complete log of all utility payments.</CardDescription>
+            <CardTitle>Utility Bills for this Month</CardTitle>
+            <CardDescription>A complete log of all utility payments for the selected month.</CardDescription>
           </div>
           <div className="text-2xl font-bold">Total: ৳{totalAmount.toLocaleString()}</div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Notes</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedBills.map((bill) => (
-                <TableRow key={bill.id}>
-                  <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
-                  <TableCell><Badge variant="outline">{bill.type}</Badge></TableCell>
-                  <TableCell className="font-medium">{bill.notes || "-"}</TableCell>
-                  <TableCell className="text-right">৳{bill.amount.toLocaleString()}</TableCell>
-                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => openDialog(bill)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setBillToDelete(bill)} className="text-red-600">Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {monthlyBills.length > 0 ? (
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>
+                    <span className="sr-only">Actions</span>
+                    </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                </TableHeader>
+                <TableBody>
+                {monthlyBills.map((bill) => (
+                    <TableRow key={bill.id}>
+                    <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
+                    <TableCell><Badge variant="outline">{bill.type}</Badge></TableCell>
+                    <TableCell className="font-medium">{bill.notes || "-"}</TableCell>
+                    <TableCell className="text-right">৳{bill.amount.toLocaleString()}</TableCell>
+                    <TableCell>
+                        <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onSelect={() => openDialog(bill)}>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setBillToDelete(bill)} className="text-red-600">Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center text-muted-foreground p-8">No utility bills this month.</div>
+          )}
         </CardContent>
       </Card>
 
