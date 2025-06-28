@@ -1,9 +1,9 @@
 "use client"
 import * as React from "react"
-import { PlusCircle } from "lucide-react"
+import { PlusCircle, MoreHorizontal } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import {
   Table,
   TableBody,
@@ -12,10 +12,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PageHeader } from "@/components/page-header"
-import { utilityBills as initialBills } from "@/lib/data"
-import type { UtilityBill } from "@/lib/types"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -23,8 +26,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -34,160 +46,192 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-
-const BillTable = ({ bills }: { bills: UtilityBill[] }) => (
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>Date</TableHead>
-        <TableHead>Notes</TableHead>
-        <TableHead className="text-right">Amount</TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {bills.map((bill) => (
-        <TableRow key={bill.id}>
-          <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
-          <TableCell className="font-medium">{bill.notes || "-"}</TableCell>
-          <TableCell className="text-right">৳{bill.amount.toLocaleString()}</TableCell>
-        </TableRow>
-      ))}
-    </TableBody>
-  </Table>
-)
+import { PageHeader } from "@/components/page-header"
+import { utilityBills as initialBills } from "@/lib/data"
+import type { UtilityBill } from "@/lib/types"
+import { Badge } from "@/components/ui/badge"
 
 export default function UtilityBillsPage() {
   const [bills, setBills] = React.useState<UtilityBill[]>(initialBills)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [editingBill, setEditingBill] = React.useState<UtilityBill | null>(null)
+  const [billToDelete, setBillToDelete] = React.useState<UtilityBill | null>(null)
+
+  // Form state
   const [billType, setBillType] = React.useState<UtilityBill['type'] | "">("")
   const [amount, setAmount] = React.useState("")
   const [notes, setNotes] = React.useState("")
+
+  const openDialog = (bill: UtilityBill | null) => {
+    setEditingBill(bill)
+    if (bill) {
+      setBillType(bill.type)
+      setAmount(bill.amount.toString())
+      setNotes(bill.notes)
+    } else {
+      setBillType("")
+      setAmount("")
+      setNotes("")
+    }
+    setIsDialogOpen(true)
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!billType || !amount) return
 
-    const newBill: UtilityBill = {
-      id: `b${Date.now()}`,
+    const billData = {
       date: new Date().toISOString(),
       type: billType as UtilityBill['type'],
       amount: parseFloat(amount),
       notes,
     }
+
+    if (editingBill) {
+      setBills(bills.map(b => b.id === editingBill.id ? { ...b, ...billData } : b))
+    } else {
+      setBills(prev => [{ id: `b${Date.now()}`, ...billData }, ...prev])
+    }
     
-    setBills(prev => [newBill, ...prev])
-    setBillType("")
-    setAmount("")
-    setNotes("")
     setIsDialogOpen(false)
+    setEditingBill(null)
+  }
+  
+  const handleDelete = (bill: UtilityBill) => {
+      setBills(bills.filter(b => b.id !== bill.id))
+      setBillToDelete(null)
   }
 
-  const getSortedBills = (type: UtilityBill['type']) => {
-    return bills
-      .filter(b => b.type === type)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }
-
-  const electricityBills = getSortedBills("Electricity")
-  const waterBills = getSortedBills("Water")
-  const gasBills = getSortedBills("Gas")
-
-  const getTotal = (bills: UtilityBill[]) => bills.reduce((acc, bill) => acc + bill.amount, 0)
+  const sortedBills = React.useMemo(() => {
+    return [...bills].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [bills])
+  
+  const totalAmount = React.useMemo(() => {
+    return bills.reduce((acc, bill) => acc + bill.amount, 0)
+  }, [bills])
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Utility Bills">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-4 w-4" />
-              Add Bill Payment
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <form onSubmit={handleSubmit}>
-              <DialogHeader>
-                <DialogTitle>Add Bill Payment</DialogTitle>
-                <DialogDescription>
-                  Record a new utility bill payment.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="type" className="text-right">
-                    Type
-                  </Label>
-                  <Select value={billType} onValueChange={(value) => setBillType(value as UtilityBill['type'])}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select bill type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Electricity">Electricity</SelectItem>
-                      <SelectItem value="Water">Water</SelectItem>
-                      <SelectItem value="Gas">Gas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="amount" className="text-right">
-                    Amount
-                  </Label>
-                  <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="notes" className="text-right">
-                    Notes
-                  </Label>
-                  <Input id="notes" className="col-span-3" value={notes} onChange={(e) => setNotes(e.target.value)} />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Save Payment</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" className="gap-1" onClick={() => openDialog(null)}>
+          <PlusCircle className="h-4 w-4" />
+          Add Bill Payment
+        </Button>
       </PageHeader>
-      <Tabs defaultValue="electricity">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="electricity">Electricity</TabsTrigger>
-          <TabsTrigger value="water">Water</TabsTrigger>
-          <TabsTrigger value="gas">Gas</TabsTrigger>
-        </TabsList>
-        <TabsContent value="electricity">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Electricity Bills</CardTitle>
-              <div className="text-2xl font-bold">Total: ৳{getTotal(electricityBills).toLocaleString()}</div>
-            </CardHeader>
-            <CardContent>
-              <BillTable bills={electricityBills} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="water">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Water Bills</CardTitle>
-              <div className="text-2xl font-bold">Total: ৳{getTotal(waterBills).toLocaleString()}</div>
-            </CardHeader>
-            <CardContent>
-              <BillTable bills={waterBills} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="gas">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Gas Bills</CardTitle>
-              <div className="text-2xl font-bold">Total: ৳{getTotal(gasBills).toLocaleString()}</div>
-            </CardHeader>
-            <CardContent>
-              <BillTable bills={gasBills} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>All Utility Bills</CardTitle>
+            <CardDescription>A complete log of all utility payments.</CardDescription>
+          </div>
+          <div className="text-2xl font-bold">Total: ৳{totalAmount.toLocaleString()}</div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Notes</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedBills.map((bill) => (
+                <TableRow key={bill.id}>
+                  <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
+                  <TableCell><Badge variant="outline">{bill.type}</Badge></TableCell>
+                  <TableCell className="font-medium">{bill.notes || "-"}</TableCell>
+                  <TableCell className="text-right">৳{bill.amount.toLocaleString()}</TableCell>
+                   <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onSelect={() => openDialog(bill)}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setBillToDelete(bill)} className="text-red-600">Delete</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>{editingBill ? "Edit Bill Payment" : "Add Bill Payment"}</DialogTitle>
+              <DialogDescription>
+                {editingBill ? "Update the details of the bill." : "Record a new utility bill payment."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="type" className="text-right">
+                  Type
+                </Label>
+                <Select value={billType} onValueChange={(value) => setBillType(value as UtilityBill['type'])}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select bill type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Electricity">Electricity</SelectItem>
+                    <SelectItem value="Water">Water</SelectItem>
+                    <SelectItem value="Gas">Gas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="amount" className="text-right">
+                  Amount
+                </Label>
+                <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="notes" className="text-right">
+                  Notes
+                </Label>
+                <Input id="notes" className="col-span-3" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit">Save Payment</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+       <AlertDialog open={!!billToDelete} onOpenChange={() => setBillToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the bill payment record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => billToDelete && handleDelete(billToDelete)}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

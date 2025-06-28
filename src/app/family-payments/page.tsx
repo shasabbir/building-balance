@@ -26,13 +26,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
-import { familyMembers as initialFamilyMembers, payouts as initialPayouts } from "@/lib/data"
-import type { FamilyMember, Payout } from "@/lib/types"
+import { familyMembers, payouts as initialPayouts } from "@/lib/data"
+import type { Payout } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -44,33 +53,57 @@ import {
 
 export default function FamilyPaymentsPage() {
   const [payouts, setPayouts] = React.useState<Payout[]>(initialPayouts)
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [editingPayout, setEditingPayout] = React.useState<Payout | null>(null)
+  const [payoutToDelete, setPayoutToDelete] = React.useState<Payout | null>(null)
+
+  // Form State
   const [selectedMemberId, setSelectedMemberId] = React.useState("")
   const [amount, setAmount] = React.useState("")
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  
+  const openDialog = (payout: Payout | null) => {
+      setEditingPayout(payout)
+      if (payout) {
+          setSelectedMemberId(payout.familyMemberId)
+          setAmount(payout.amount.toString())
+      } else {
+          setSelectedMemberId("")
+          setAmount("")
+      }
+      setIsDialogOpen(true)
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedMemberId || !amount) return
 
-    const member = initialFamilyMembers.find(m => m.id === selectedMemberId)
+    const member = familyMembers.find(m => m.id === selectedMemberId)
     if (!member) return
 
-    const newPayout: Payout = {
-      id: `p${Date.now()}`,
+    const payoutData = {
       familyMemberId: selectedMemberId,
       familyMemberName: member.name,
       amount: parseFloat(amount),
       date: new Date().toISOString(),
     }
 
-    setPayouts(prev => [newPayout, ...prev])
-    setSelectedMemberId("")
-    setAmount("")
+    if (editingPayout) {
+        setPayouts(payouts.map(p => p.id === editingPayout.id ? { ...p, ...payoutData } : p))
+    } else {
+        setPayouts(prev => [{ id: `p${Date.now()}`, ...payoutData }, ...prev])
+    }
+
     setIsDialogOpen(false)
+    setEditingPayout(null)
+  }
+
+  const handleDelete = (payout: Payout) => {
+      setPayouts(payouts.filter(p => p.id !== payout.id))
+      setPayoutToDelete(null)
   }
 
   const familyMembersWithSummary = React.useMemo(() => {
-    return initialFamilyMembers.map(member => {
+    return familyMembers.map(member => {
       const memberPayouts = payouts.filter(p => p.familyMemberId === member.id)
       const paid = memberPayouts.reduce((acc, p) => acc + p.amount, 0)
       const payable = member.expected - paid
@@ -78,7 +111,7 @@ export default function FamilyPaymentsPage() {
         ...member,
         paid,
         payable: payable > 0 ? payable : 0,
-        // NOTE: Cumulative payable is not calculated dynamically from history in this implementation
+        // NOTE: Cumulative payable is not calculated dynamically from history
       }
     })
   }, [payouts])
@@ -90,19 +123,100 @@ export default function FamilyPaymentsPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Family Payments">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-4 w-4" />
-              Add Payout
-            </Button>
-          </DialogTrigger>
+        <Button size="sm" className="gap-1" onClick={() => openDialog(null)}>
+            <PlusCircle className="h-4 w-4" />
+            Add Payout
+        </Button>
+      </PageHeader>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Payout Summary</CardTitle>
+          <CardDescription>Monthly expected and paid amounts for each family member.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member Name</TableHead>
+                <TableHead className="text-right">Expected</TableHead>
+                <TableHead className="text-right">Paid</TableHead>
+                <TableHead className="text-right">This Month Payable</TableHead>
+                <TableHead className="text-right">Total Payable</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {familyMembersWithSummary.map((member) => (
+                <TableRow key={member.id}>
+                  <TableCell className="font-medium">{member.name}</TableCell>
+                  <TableCell className="text-right">৳{member.expected.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">৳{member.paid.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">
+                    {member.payable > 0 ? (
+                      <Badge variant="destructive">৳{member.payable.toLocaleString()}</Badge>
+                    ) : (
+                      '৳0'
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold">৳{member.cumulativePayable.toLocaleString()}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+            <CardTitle>Payout History</CardTitle>
+            <CardDescription>Full list of all payouts made.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Member Name</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {sortedPayouts.map((payout) => (
+                        <TableRow key={payout.id}>
+                            <TableCell>{new Date(payout.date).toLocaleDateString()}</TableCell>
+                            <TableCell className="font-medium">{payout.familyMemberName}</TableCell>
+                            <TableCell className="text-right">৳{payout.amount.toLocaleString()}</TableCell>
+                            <TableCell>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">Toggle menu</span>
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                        <DropdownMenuItem onSelect={() => openDialog(payout)}>Edit</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={() => setPayoutToDelete(payout)} className="text-red-600">Delete</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </CardContent>
+      </Card>
+      
+      {/* Add/Edit Payout Dialog */}
+       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle>Add Payout</DialogTitle>
+                <DialogTitle>{editingPayout ? "Edit Payout" : "Add Payout"}</DialogTitle>
                 <DialogDescription>
-                  Record a new payment made to a family member.
+                  {editingPayout ? "Update the details of this payout." : "Record a new payment made to a family member."}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -115,7 +229,7 @@ export default function FamilyPaymentsPage() {
                       <SelectValue placeholder="Select a member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {initialFamilyMembers.map((member) => (
+                      {familyMembers.map((member) => (
                         <SelectItem key={member.id} value={member.id}>
                           {member.name}
                         </SelectItem>
@@ -136,88 +250,24 @@ export default function FamilyPaymentsPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </PageHeader>
-      <Card>
-        <CardHeader>
-          <CardTitle>Payout Summary</CardTitle>
-          <CardDescription>Monthly expected and paid amounts for each family member.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member Name</TableHead>
-                <TableHead className="text-right">Expected</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
-                <TableHead className="text-right">This Month Payable</TableHead>
-                <TableHead className="text-right">Total Payable</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {familyMembersWithSummary.map((member) => (
-                <TableRow key={member.id}>
-                  <TableCell className="font-medium">{member.name}</TableCell>
-                  <TableCell className="text-right">৳{member.expected.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">৳{member.paid.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">
-                    {member.payable > 0 ? (
-                      <Badge variant="destructive">৳{member.payable.toLocaleString()}</Badge>
-                    ) : (
-                      '৳0'
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold">৳{member.cumulativePayable.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>View History</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-            <CardTitle>Payout History</CardTitle>
-            <CardDescription>Full list of all payouts made.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Member Name</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {sortedPayouts.map((payout) => (
-                        <TableRow key={payout.id}>
-                            <TableCell>{new Date(payout.date).toLocaleDateString()}</TableCell>
-                            <TableCell className="font-medium">{payout.familyMemberName}</TableCell>
-                            <TableCell className="text-right">৳{payout.amount.toLocaleString()}</TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </CardContent>
-      </Card>
+        
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!payoutToDelete} onOpenChange={() => setPayoutToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the payout record.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => payoutToDelete && handleDelete(payoutToDelete)}>
+                    Continue
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   )
 }

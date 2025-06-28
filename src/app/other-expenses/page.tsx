@@ -26,8 +26,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import {
   Select,
   SelectContent,
@@ -45,27 +54,52 @@ import { Badge } from "@/components/ui/badge"
 export default function OtherExpensesPage() {
   const [expenses, setExpenses] = React.useState<Expense[]>(initialExpenses)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [editingExpense, setEditingExpense] = React.useState<Expense | null>(null)
+  const [expenseToDelete, setExpenseToDelete] = React.useState<Expense | null>(null)
+  
+  // Form state
   const [category, setCategory] = React.useState<Expense['category'] | "">("")
   const [amount, setAmount] = React.useState("")
   const [details, setDetails] = React.useState("")
+  
+  const openDialog = (expense: Expense | null) => {
+    setEditingExpense(expense)
+    if (expense) {
+      setCategory(expense.category)
+      setAmount(expense.amount.toString())
+      setDetails(expense.details)
+    } else {
+      setCategory("")
+      setAmount("")
+      setDetails("")
+    }
+    setIsDialogOpen(true)
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!category || !amount || !details) return
 
-    const newExpense: Expense = {
-      id: `e${Date.now()}`,
+    const expenseData = {
       date: new Date().toISOString(),
       category: category as Expense['category'],
       amount: parseFloat(amount),
       details,
     }
 
-    setExpenses(prev => [newExpense, ...prev])
-    setCategory("")
-    setAmount("")
-    setDetails("")
+    if (editingExpense) {
+      setExpenses(expenses.map(e => e.id === editingExpense.id ? { ...e, ...expenseData } : e))
+    } else {
+      setExpenses(prev => [{ id: `e${Date.now()}`, ...expenseData }, ...prev])
+    }
+    
     setIsDialogOpen(false)
+    setEditingExpense(null)
+  }
+  
+  const handleDelete = (expense: Expense) => {
+    setExpenses(expenses.filter(e => e.id !== expense.id))
+    setExpenseToDelete(null)
   }
 
   const sortedExpenses = React.useMemo(() => {
@@ -79,56 +113,10 @@ export default function OtherExpensesPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Other Expenses">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1">
-              <PlusCircle className="h-4 w-4" />
-              Add Expense
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <form onSubmit={handleSubmit}>
-              <DialogHeader>
-                <DialogTitle>Add Expense</DialogTitle>
-                <DialogDescription>
-                  Record a new household, maintenance, or other expense.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="category" className="text-right">
-                    Category
-                  </Label>
-                  <Select value={category} onValueChange={(value) => setCategory(value as Expense['category'])}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select a category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="household">Household</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="amount" className="text-right">
-                    Amount
-                  </Label>
-                  <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="details" className="text-right">
-                    Details
-                  </Label>
-                  <Input id="details" className="col-span-3" value={details} onChange={(e) => setDetails(e.target.value)} />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Save Expense</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button size="sm" className="gap-1" onClick={() => openDialog(null)}>
+            <PlusCircle className="h-4 w-4" />
+            Add Expense
+        </Button>
       </PageHeader>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -170,8 +158,8 @@ export default function OtherExpensesPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Delete</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => openDialog(expense)}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setExpenseToDelete(expense)} className="text-red-600">Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -181,6 +169,70 @@ export default function OtherExpensesPage() {
           </Table>
         </CardContent>
       </Card>
+      
+      {/* Add/Edit Expense Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent>
+            <form onSubmit={handleSubmit}>
+              <DialogHeader>
+                <DialogTitle>{editingExpense ? "Edit Expense" : "Add Expense"}</DialogTitle>
+                <DialogDescription>
+                  {editingExpense ? "Update the details of this expense." : "Record a new household, maintenance, or other expense."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="category" className="text-right">
+                    Category
+                  </Label>
+                  <Select value={category} onValueChange={(value) => setCategory(value as Expense['category'])}>
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="household">Household</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="amount" className="text-right">
+                    Amount
+                  </Label>
+                  <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="details" className="text-right">
+                    Details
+                  </Label>
+                  <Input id="details" className="col-span-3" value={details} onChange={(e) => setDetails(e.target.value)} />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Save Expense</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!expenseToDelete} onOpenChange={() => setExpenseToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the expense record.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => expenseToDelete && handleDelete(expenseToDelete)}>
+                    Continue
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   )
 }
