@@ -7,6 +7,14 @@ export interface FamilyMember {
   cumulativePayable: number
 }
 
+export interface Payout {
+  id: string
+  familyMemberId: string
+  familyMemberName: string
+  amount: number
+  date: string
+}
+
 export interface UtilityBill {
   id: string
   type: 'Electricity' | 'Water' | 'Gas'
@@ -37,4 +45,13 @@ export interface Renter {
   rentPaid: number
   payable: number
   cumulativePayable: number
+}
+
+export interface RentPayment {
+  id: string
+  renterId: string
+  renterName: string
+  roomNumber: string
+  amount: number
+  date: string
 }

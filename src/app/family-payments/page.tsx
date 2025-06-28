@@ -31,7 +31,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
-import { familyMembers } from "@/lib/data"
+import { familyMembers as initialFamilyMembers, payouts as initialPayouts } from "@/lib/data"
+import type { FamilyMember, Payout } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -42,18 +43,49 @@ import {
 } from "@/components/ui/select"
 
 export default function FamilyPaymentsPage() {
-  const [selectedMember, setSelectedMember] = React.useState("")
+  const [payouts, setPayouts] = React.useState<Payout[]>(initialPayouts)
+  const [selectedMemberId, setSelectedMemberId] = React.useState("")
   const [amount, setAmount] = React.useState("")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Payout saved:", { selectedMember, amount })
-    // Here you would typically handle the form submission, e.g., send to an API
-    setSelectedMember("")
+    if (!selectedMemberId || !amount) return
+
+    const member = initialFamilyMembers.find(m => m.id === selectedMemberId)
+    if (!member) return
+
+    const newPayout: Payout = {
+      id: `p${Date.now()}`,
+      familyMemberId: selectedMemberId,
+      familyMemberName: member.name,
+      amount: parseFloat(amount),
+      date: new Date().toISOString(),
+    }
+
+    setPayouts(prev => [newPayout, ...prev])
+    setSelectedMemberId("")
     setAmount("")
     setIsDialogOpen(false)
   }
+
+  const familyMembersWithSummary = React.useMemo(() => {
+    return initialFamilyMembers.map(member => {
+      const memberPayouts = payouts.filter(p => p.familyMemberId === member.id)
+      const paid = memberPayouts.reduce((acc, p) => acc + p.amount, 0)
+      const payable = member.expected - paid
+      return {
+        ...member,
+        paid,
+        payable: payable > 0 ? payable : 0,
+        // NOTE: Cumulative payable is not calculated dynamically from history in this implementation
+      }
+    })
+  }, [payouts])
+  
+  const sortedPayouts = React.useMemo(() => {
+    return [...payouts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [payouts])
 
   return (
     <div className="flex flex-col gap-8">
@@ -78,12 +110,12 @@ export default function FamilyPaymentsPage() {
                   <Label htmlFor="name" className="text-right">
                     Member
                   </Label>
-                  <Select value={selectedMember} onValueChange={setSelectedMember}>
+                  <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Select a member" />
                     </SelectTrigger>
                     <SelectContent>
-                      {familyMembers.map((member) => (
+                      {initialFamilyMembers.map((member) => (
                         <SelectItem key={member.id} value={member.id}>
                           {member.name}
                         </SelectItem>
@@ -125,7 +157,7 @@ export default function FamilyPaymentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {familyMembers.map((member) => (
+              {familyMembersWithSummary.map((member) => (
                 <TableRow key={member.id}>
                   <TableCell className="font-medium">{member.name}</TableCell>
                   <TableCell className="text-right">৳{member.expected.toLocaleString()}</TableCell>
@@ -157,6 +189,33 @@ export default function FamilyPaymentsPage() {
               ))}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+            <CardTitle>Payout History</CardTitle>
+            <CardDescription>Full list of all payouts made.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Member Name</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {sortedPayouts.map((payout) => (
+                        <TableRow key={payout.id}>
+                            <TableCell>{new Date(payout.date).toLocaleDateString()}</TableCell>
+                            <TableCell className="font-medium">{payout.familyMemberName}</TableCell>
+                            <TableCell className="text-right">৳{payout.amount.toLocaleString()}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
         </CardContent>
       </Card>
     </div>

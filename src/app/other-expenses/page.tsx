@@ -38,23 +38,43 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
-import { otherExpenses } from "@/lib/data"
+import { otherExpenses as initialExpenses } from "@/lib/data"
+import type { Expense } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 
 export default function OtherExpensesPage() {
+  const [expenses, setExpenses] = React.useState<Expense[]>(initialExpenses)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-  const [category, setCategory] = React.useState("")
+  const [category, setCategory] = React.useState<Expense['category'] | "">("")
   const [amount, setAmount] = React.useState("")
   const [details, setDetails] = React.useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Expense saved:", { category, amount, details })
+    if (!category || !amount || !details) return
+
+    const newExpense: Expense = {
+      id: `e${Date.now()}`,
+      date: new Date().toISOString(),
+      category: category as Expense['category'],
+      amount: parseFloat(amount),
+      details,
+    }
+
+    setExpenses(prev => [newExpense, ...prev])
     setCategory("")
     setAmount("")
     setDetails("")
     setIsDialogOpen(false)
   }
+
+  const sortedExpenses = React.useMemo(() => {
+    return [...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [expenses])
+  
+  const totalExpenses = React.useMemo(() => {
+      return expenses.reduce((total, expense) => total + expense.amount, 0)
+  }, [expenses])
 
   return (
     <div className="flex flex-col gap-8">
@@ -79,7 +99,7 @@ export default function OtherExpensesPage() {
                   <Label htmlFor="category" className="text-right">
                     Category
                   </Label>
-                  <Select value={category} onValueChange={setCategory}>
+                  <Select value={category} onValueChange={(value) => setCategory(value as Expense['category'])}>
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
@@ -111,9 +131,12 @@ export default function OtherExpensesPage() {
         </Dialog>
       </PageHeader>
       <Card>
-        <CardHeader>
-          <CardTitle>Expense Log</CardTitle>
-          <CardDescription>A list of all miscellaneous expenses for this month.</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle>Expense Log</CardTitle>
+                <CardDescription>A list of all miscellaneous expenses.</CardDescription>
+            </div>
+            <div className="text-2xl font-bold">Total: ৳{totalExpenses.toLocaleString()}</div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -129,7 +152,7 @@ export default function OtherExpensesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {otherExpenses.map((expense) => (
+              {sortedExpenses.map((expense) => (
                 <TableRow key={expense.id}>
                   <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
                   <TableCell>

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
-import { utilityBills } from "@/lib/data"
+import { utilityBills as initialBills } from "@/lib/data"
 import type { UtilityBill } from "@/lib/types"
 import {
   Dialog,
@@ -57,25 +57,42 @@ const BillTable = ({ bills }: { bills: UtilityBill[] }) => (
 )
 
 export default function UtilityBillsPage() {
-  const electricityBills = utilityBills.filter(b => b.type === "Electricity")
-  const waterBills = utilityBills.filter(b => b.type === "Water")
-  const gasBills = utilityBills.filter(b => b.type === "Gas")
-
-  const getTotal = (bills: UtilityBill[]) => bills.reduce((acc, bill) => acc + bill.amount, 0)
-
+  const [bills, setBills] = React.useState<UtilityBill[]>(initialBills)
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-  const [billType, setBillType] = React.useState("")
+  const [billType, setBillType] = React.useState<UtilityBill['type'] | "">("")
   const [amount, setAmount] = React.useState("")
   const [notes, setNotes] = React.useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Bill payment saved:", { billType, amount, notes })
+    if (!billType || !amount) return
+
+    const newBill: UtilityBill = {
+      id: `b${Date.now()}`,
+      date: new Date().toISOString(),
+      type: billType as UtilityBill['type'],
+      amount: parseFloat(amount),
+      notes,
+    }
+    
+    setBills(prev => [newBill, ...prev])
     setBillType("")
     setAmount("")
     setNotes("")
     setIsDialogOpen(false)
   }
+
+  const getSortedBills = (type: UtilityBill['type']) => {
+    return bills
+      .filter(b => b.type === type)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }
+
+  const electricityBills = getSortedBills("Electricity")
+  const waterBills = getSortedBills("Water")
+  const gasBills = getSortedBills("Gas")
+
+  const getTotal = (bills: UtilityBill[]) => bills.reduce((acc, bill) => acc + bill.amount, 0)
 
   return (
     <div className="flex flex-col gap-8">
@@ -100,7 +117,7 @@ export default function UtilityBillsPage() {
                   <Label htmlFor="type" className="text-right">
                     Type
                   </Label>
-                  <Select value={billType} onValueChange={setBillType}>
+                  <Select value={billType} onValueChange={(value) => setBillType(value as UtilityBill['type'])}>
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Select bill type" />
                     </SelectTrigger>

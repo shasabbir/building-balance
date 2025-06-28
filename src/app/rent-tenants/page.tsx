@@ -31,7 +31,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
-import { renters, rooms } from "@/lib/data"
+import { renters as initialRenters, rooms, rentPayments as initialRentPayments } from "@/lib/data"
+import type { RentPayment } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import {
   Select,
@@ -46,18 +47,49 @@ const getRoomNumber = (roomId: string) => {
 }
 
 export default function RentTenantsPage() {
-  const [selectedTenant, setSelectedTenant] = React.useState("")
+  const [rentPayments, setRentPayments] = React.useState<RentPayment[]>(initialRentPayments)
+  const [selectedTenantId, setSelectedTenantId] = React.useState("")
   const [amount, setAmount] = React.useState("")
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    console.log("Rent payment saved:", { selectedTenant, amount })
-    // Here you would typically handle the form submission, e.g., send to an API
-    setSelectedTenant("")
+    if (!selectedTenantId || !amount) return
+    
+    const renter = initialRenters.find(r => r.id === selectedTenantId)
+    if (!renter) return
+
+    const newPayment: RentPayment = {
+      id: `rp${Date.now()}`,
+      renterId: selectedTenantId,
+      renterName: renter.name,
+      roomNumber: getRoomNumber(renter.roomId),
+      amount: parseFloat(amount),
+      date: new Date().toISOString(),
+    }
+    setRentPayments(prev => [newPayment, ...prev])
+    setSelectedTenantId("")
     setAmount("")
     setIsDialogOpen(false)
   }
+  
+  const rentersWithSummary = React.useMemo(() => {
+    return initialRenters.map(renter => {
+      const renterPayments = rentPayments.filter(p => p.renterId === renter.id)
+      const rentPaid = renterPayments.reduce((acc, p) => acc + p.amount, 0)
+      const payable = renter.rentDue - rentPaid
+      return {
+        ...renter,
+        rentPaid,
+        payable: payable > 0 ? payable : 0,
+        // NOTE: Cumulative payable is not calculated dynamically from history in this implementation
+      }
+    })
+  }, [rentPayments])
+  
+  const sortedRentPayments = React.useMemo(() => {
+      return [...rentPayments].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [rentPayments])
 
   return (
     <div className="flex flex-col gap-8">
@@ -82,12 +114,12 @@ export default function RentTenantsPage() {
                   <Label htmlFor="tenant" className="text-right">
                     Tenant
                   </Label>
-                  <Select value={selectedTenant} onValueChange={setSelectedTenant}>
+                  <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
                     <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Select a tenant" />
                     </SelectTrigger>
                     <SelectContent>
-                      {renters.map((renter) => (
+                      {initialRenters.map((renter) => (
                         <SelectItem key={renter.id} value={renter.id}>
                           {renter.name}
                         </SelectItem>
@@ -132,7 +164,7 @@ export default function RentTenantsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {renters.map((renter) => (
+              {rentersWithSummary.map((renter) => (
                 <TableRow key={renter.id}>
                   <TableCell><Badge variant="secondary">{getRoomNumber(renter.roomId)}</Badge></TableCell>
                   <TableCell className="font-medium">{renter.name}</TableCell>
@@ -165,6 +197,35 @@ export default function RentTenantsPage() {
               ))}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+            <CardTitle>Rent Payment History</CardTitle>
+            <CardDescription>Full list of all rent payments received.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Room</TableHead>
+                        <TableHead>Renter</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {sortedRentPayments.map((payment) => (
+                        <TableRow key={payment.id}>
+                            <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
+                            <TableCell><Badge variant="outline">{payment.roomNumber}</Badge></TableCell>
+                            <TableCell className="font-medium">{payment.renterName}</TableCell>
+                            <TableCell className="text-right">৳{payment.amount.toLocaleString()}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
         </CardContent>
       </Card>
     </div>
