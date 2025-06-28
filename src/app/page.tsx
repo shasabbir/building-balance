@@ -1,3 +1,4 @@
+
 "use client"
 import * as React from "react"
 import { DollarSign, Users, Home, Receipt, Wallet, TrendingUp, TrendingDown, Repeat } from 'lucide-react'
@@ -156,7 +157,7 @@ export default function Dashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Type</TableHead>
+                    <TableHead className="hidden sm:table-cell">Type</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                   </TableRow>
@@ -164,7 +165,7 @@ export default function Dashboard() {
                 <TableBody>
                   {recentActivities.map((activity, index) => (
                     <TableRow key={index}>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge variant={activity.status === 'pending' ? 'destructive' : 'secondary'} className="capitalize">{activity.type}</Badge>
                       </TableCell>
                       <TableCell>{activity.description}</TableCell>

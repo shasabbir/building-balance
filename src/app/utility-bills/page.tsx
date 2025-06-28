@@ -1,3 +1,4 @@
+
 "use client"
 import * as React from "react"
 import { PlusCircle, MoreHorizontal } from "lucide-react"
@@ -133,7 +134,7 @@ export default function UtilityBillsPage() {
       </PageHeader>
       
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Utility Bills for this Month</CardTitle>
             <CardDescription>A complete log of all utility payments for the selected month.</CardDescription>
@@ -147,7 +148,7 @@ export default function UtilityBillsPage() {
                 <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Type</TableHead>
-                    <TableHead>Notes</TableHead>
+                    <TableHead className="hidden sm:table-cell">Notes</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead>
                     <span className="sr-only">Actions</span>
@@ -159,7 +160,7 @@ export default function UtilityBillsPage() {
                     <TableRow key={bill.id}>
                     <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
                     <TableCell><Badge variant="outline">{bill.type}</Badge></TableCell>
-                    <TableCell className="font-medium">{bill.notes || "-"}</TableCell>
+                    <TableCell className="font-medium hidden sm:table-cell">{bill.notes || "-"}</TableCell>
                     <TableCell className="text-right">৳{bill.amount.toLocaleString()}</TableCell>
                     <TableCell>
                         <DropdownMenu>
@@ -197,12 +198,12 @@ export default function UtilityBillsPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right">
+              <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="type" className="sm:text-right">
                   Type
                 </Label>
                 <Select value={billType} onValueChange={(value) => setBillType(value as UtilityBill['type'])}>
-                  <SelectTrigger className="col-span-3">
+                  <SelectTrigger className="sm:col-span-3">
                     <SelectValue placeholder="Select bill type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -212,17 +213,17 @@ export default function UtilityBillsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
+              <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="amount" className="sm:text-right">
                   Amount
                 </Label>
-                <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                <Input id="amount" type="number" className="sm:col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="notes" className="text-right">
+              <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                <Label htmlFor="notes" className="sm:text-right">
                   Notes
                 </Label>
-                <Input id="notes" className="col-span-3" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                <Input id="notes" className="sm:col-span-3" value={notes} onChange={(e) => setNotes(e.target.value)} />
               </div>
             </div>
             <DialogFooter>

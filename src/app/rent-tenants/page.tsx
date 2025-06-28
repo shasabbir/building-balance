@@ -319,8 +319,8 @@ export default function RentTenantsPage() {
                 <TableHead>Renter</TableHead>
                 <TableHead className="text-right">Rent Due</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
-                <TableHead className="text-right">This Month Payable</TableHead>
-                <TableHead className="text-right">Total Payable (All Time)</TableHead>
+                <TableHead className="text-right"><span className="hidden md:inline">This Month </span>Payable</TableHead>
+                <TableHead className="text-right hidden md:table-cell">Total Payable (All Time)</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -340,7 +340,7 @@ export default function RentTenantsPage() {
                       '৳0'
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-semibold">৳{renter.cumulativePayable.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-semibold hidden md:table-cell">৳{renter.cumulativePayable.toLocaleString()}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -375,7 +375,7 @@ export default function RentTenantsPage() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Date</TableHead>
-                            <TableHead>Room</TableHead>
+                            <TableHead className="hidden sm:table-cell">Room</TableHead>
                             <TableHead>Renter</TableHead>
                             <TableHead className="text-right">Amount</TableHead>
                             <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -385,7 +385,7 @@ export default function RentTenantsPage() {
                         {monthlyRentPayments.map((payment) => (
                             <TableRow key={payment.id}>
                                 <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
-                                <TableCell><Badge variant="outline">{payment.roomNumber}</Badge></TableCell>
+                                <TableCell className="hidden sm:table-cell"><Badge variant="outline">{payment.roomNumber}</Badge></TableCell>
                                 <TableCell className="font-medium">{payment.renterName}</TableCell>
                                 <TableCell className="text-right">৳{payment.amount.toLocaleString()}</TableCell>
                                 <TableCell>
@@ -475,14 +475,14 @@ export default function RentTenantsPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="renter-name" className="text-right">Name</Label>
-                    <Input id="renter-name" value={renterName} onChange={(e) => setRenterName(e.target.value)} className="col-span-3" />
+                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                    <Label htmlFor="renter-name" className="sm:text-right">Name</Label>
+                    <Input id="renter-name" value={renterName} onChange={(e) => setRenterName(e.target.value)} className="sm:col-span-3" />
                 </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="room" className="text-right">Room</Label>
+                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                    <Label htmlFor="room" className="sm:text-right">Room</Label>
                     <Select value={renterRoomId} onValueChange={setRenterRoomId}>
-                        <SelectTrigger className="col-span-3">
+                        <SelectTrigger className="sm:col-span-3">
                             <SelectValue placeholder="Select a room" />
                         </SelectTrigger>
                         <SelectContent>
@@ -517,12 +517,12 @@ export default function RentTenantsPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="tenant" className="text-right">
+                <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                  <Label htmlFor="tenant" className="sm:text-right">
                     Tenant
                   </Label>
                   <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
-                    <SelectTrigger className="col-span-3">
+                    <SelectTrigger className="sm:col-span-3">
                       <SelectValue placeholder="Select a tenant" />
                     </SelectTrigger>
                     <SelectContent>
@@ -534,11 +534,11 @@ export default function RentTenantsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="amount" className="text-right">
+                <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                  <Label htmlFor="amount" className="sm:text-right">
                     Amount Paid
                   </Label>
-                  <Input id="amount" type="number" className="col-span-3" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} />
+                  <Input id="amount" type="number" className="sm:col-span-3" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} />
                 </div>
               </div>
               <DialogFooter>
@@ -559,13 +559,13 @@ export default function RentTenantsPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="room-number" className="text-right">Room No.</Label>
-                    <Input id="room-number" value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} className="col-span-3" />
+                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                    <Label htmlFor="room-number" className="sm:text-right">Room No.</Label>
+                    <Input id="room-number" value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} className="sm:col-span-3" />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="rent-amount" className="text-right">Rent Amount</Label>
-                    <Input id="rent-amount" type="number" value={roomRentAmount} onChange={(e) => setRoomRentAmount(e.target.value)} className="col-span-3" />
+                <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                    <Label htmlFor="rent-amount" className="sm:text-right">Rent Amount</Label>
+                    <Input id="rent-amount" type="number" value={roomRentAmount} onChange={(e) => setRoomRentAmount(e.target.value)} className="sm:col-span-3" />
                 </div>
               </div>
               <DialogFooter>

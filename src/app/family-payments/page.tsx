@@ -257,9 +257,9 @@ export default function FamilyPaymentsPage() {
               <TableRow>
                 <TableHead>Member Name</TableHead>
                 <TableHead className="text-right">Expected</TableHead>
-                <TableHead className="text-right">Paid This Month</TableHead>
-                <TableHead className="text-right">This Month Payable</TableHead>
-                <TableHead className="text-right">Total Payable (All Time)</TableHead>
+                <TableHead className="text-right">Paid<span className="hidden md:inline"> This Month</span></TableHead>
+                <TableHead className="text-right"><span className="hidden md:inline">This Month </span>Payable</TableHead>
+                <TableHead className="text-right hidden md:table-cell">Total Payable (All Time)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -275,7 +275,7 @@ export default function FamilyPaymentsPage() {
                       '৳0'
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-semibold">৳{member.cumulativePayable.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-semibold hidden md:table-cell">৳{member.cumulativePayable.toLocaleString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -382,12 +382,12 @@ export default function FamilyPaymentsPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
+                <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                  <Label htmlFor="name" className="sm:text-right">
                     Member
                   </Label>
                   <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
-                    <SelectTrigger className="col-span-3">
+                    <SelectTrigger className="sm:col-span-3">
                       <SelectValue placeholder="Select a member" />
                     </SelectTrigger>
                     <SelectContent>
@@ -399,11 +399,11 @@ export default function FamilyPaymentsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="amount" className="text-right">
+                <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                  <Label htmlFor="amount" className="sm:text-right">
                     Amount Paid
                   </Label>
-                  <Input id="amount" type="number" className="col-span-3" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} />
+                  <Input id="amount" type="number" className="sm:col-span-3" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} />
                 </div>
               </div>
               <DialogFooter>
@@ -424,17 +424,17 @@ export default function FamilyPaymentsPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="member-name" className="text-right">
+                  <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                    <Label htmlFor="member-name" className="sm:text-right">
                       Name
                     </Label>
-                    <Input id="member-name" className="col-span-3" value={memberName} onChange={(e) => setMemberName(e.target.value)} />
+                    <Input id="member-name" className="sm:col-span-3" value={memberName} onChange={(e) => setMemberName(e.target.value)} />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="member-expected" className="text-right">
+                  <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                    <Label htmlFor="member-expected" className="sm:text-right">
                       Expected Payout
                     </Label>
-                    <Input id="member-expected" type="number" className="col-span-3" value={memberExpected} onChange={(e) => setMemberExpected(e.target.value)} />
+                    <Input id="member-expected" type="number" className="sm:col-span-3" value={memberExpected} onChange={(e) => setMemberExpected(e.target.value)} />
                   </div>
                 </div>
                 <DialogFooter>
