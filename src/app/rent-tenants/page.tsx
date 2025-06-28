@@ -1,3 +1,4 @@
+
 "use client"
 import * as React from "react"
 import { PlusCircle, MoreHorizontal } from "lucide-react"
@@ -184,7 +185,8 @@ export default function RentTenantsPage() {
       const newRentAmount = parseFloat(roomRentAmount)
       const currentRentAmount = getEffectiveValue(editingRoom.rentHistory, new Date())
       
-      let updatedHistory = [...editingRoom.rentHistory]
+      const history = Array.isArray(editingRoom.rentHistory) ? editingRoom.rentHistory : []
+      let updatedHistory = [...history]
 
       if (newRentAmount !== currentRentAmount) {
           const today = new Date();
@@ -213,6 +215,7 @@ export default function RentTenantsPage() {
         setRooms(prev => [roomData, ...prev])
     }
     setIsRoomDialogOpen(false)
+    setEditingRoom(null)
   }
   
   // --- Delete Logic ---
