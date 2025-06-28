@@ -33,8 +33,18 @@ import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
 import { familyMembers } from "@/lib/data"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function FamilyPaymentsPage() {
+  const [selectedMember, setSelectedMember] = React.useState("")
+  const [amount, setAmount] = React.useState("")
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Family Payments">
@@ -57,13 +67,24 @@ export default function FamilyPaymentsPage() {
                 <Label htmlFor="name" className="text-right">
                   Member
                 </Label>
-                <Input id="name" value="Sabbir" className="col-span-3" />
+                <Select value={selectedMember} onValueChange={setSelectedMember}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select a member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {familyMembers.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="amount" className="text-right">
                   Amount Paid
                 </Label>
-                <Input id="amount" type="number" className="col-span-3" />
+                <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
               </div>
             </div>
             <DialogFooter>

@@ -33,12 +33,22 @@ import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/page-header"
 import { renters, rooms } from "@/lib/data"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 const getRoomNumber = (roomId: string) => {
   return rooms.find(r => r.id === roomId)?.number || "N/A"
 }
 
 export default function RentTenantsPage() {
+  const [selectedTenant, setSelectedTenant] = React.useState("")
+  const [amount, setAmount] = React.useState("")
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Rent & Tenants">
@@ -61,13 +71,24 @@ export default function RentTenantsPage() {
                 <Label htmlFor="tenant" className="text-right">
                   Tenant
                 </Label>
-                <Input id="tenant" value="Mr. Karim" className="col-span-3" />
+                <Select value={selectedTenant} onValueChange={setSelectedTenant}>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Select a tenant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {renters.map((renter) => (
+                      <SelectItem key={renter.id} value={renter.id}>
+                        {renter.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="amount" className="text-right">
                   Amount Paid
                 </Label>
-                <Input id="amount" type="number" className="col-span-3" />
+                <Input id="amount" type="number" className="col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
               </div>
             </div>
             <DialogFooter>
