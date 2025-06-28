@@ -15,7 +15,8 @@ import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
 import { isSameMonth, subMonths } from 'date-fns'
-import type { Renter, RentPayment, FamilyMember, Payout, UtilityBill, Expense } from "@/lib/types"
+import type { Renter, RentPayment, FamilyMember, Payout, UtilityBill, Expense, Room } from "@/lib/types"
+import { getEffectiveValue } from "@/lib/utils"
 
 const calculateMonthlySummary = (
   targetDate: Date,
@@ -24,7 +25,8 @@ const calculateMonthlySummary = (
   allFamilyMembers: FamilyMember[],
   allPayouts: Payout[],
   allBills: UtilityBill[],
-  allExpenses: Expense[]
+  allExpenses: Expense[],
+  allRooms: Room[]
 ) => {
   // Filter transactions for the target month
   const monthlyRentPayments = allRentPayments.filter(p => isSameMonth(new Date(p.date), targetDate));
@@ -38,11 +40,15 @@ const calculateMonthlySummary = (
   const billsPaid = monthlyBills.reduce((sum, b) => sum + b.amount, 0);
   const expensesPaid = monthlyExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-  // Calculate expected totals (these are constant per month in this model)
-  const rentExpected = allRenters.reduce((sum, r) => sum + r.rentDue, 0);
+  // Calculate expected totals for the target month using historical data
+  const rentExpected = allRenters.reduce((sum, renter) => {
+    const room = allRooms.find(r => r.id === renter.roomId);
+    const rentDue = room ? getEffectiveValue(room.rentHistory, targetDate) : 0;
+    return sum + rentDue;
+  }, 0);
   const rentPayable = rentExpected - rentCollected;
   
-  const payoutsExpected = allFamilyMembers.reduce((sum, m) => sum + m.expected, 0);
+  const payoutsExpected = allFamilyMembers.reduce((sum, m) => sum + getEffectiveValue(m.expectedHistory, targetDate), 0);
   const payoutsPayable = payoutsExpected - payoutsPaid;
   
   const totalIncome = rentCollected;
@@ -62,12 +68,12 @@ const calculateMonthlySummary = (
 
 export default function Dashboard() {
   const { selectedDate } = useDate()
-  const { renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses } = useData()
+  const { renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms } = useData()
 
   const previousMonth = subMonths(selectedDate, 1)
 
-  const previousMonthSummary = calculateMonthlySummary(previousMonth, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses)
-  const currentMonthSummary = calculateMonthlySummary(selectedDate, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses)
+  const previousMonthSummary = calculateMonthlySummary(previousMonth, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms)
+  const currentMonthSummary = calculateMonthlySummary(selectedDate, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms)
 
   const carryOver = previousMonthSummary.balance
   const finalBalance = carryOver + currentMonthSummary.balance

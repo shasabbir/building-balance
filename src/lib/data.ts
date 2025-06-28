@@ -1,11 +1,11 @@
 import { FamilyMember, UtilityBill, Expense, Renter, Room, Payout, RentPayment } from "./types"
 
 export const familyMembers: FamilyMember[] = [
-  { id: "1", name: "Sabbir", expected: 10000, cumulativePayable: 0 },
-  { id: "2", name: "Sumon", expected: 10000, cumulativePayable: 5000 },
-  { id: "3", name: "Juel", expected: 12000, cumulativePayable: 0 },
-  { id: "4", name: "Suma", expected: 5000, cumulativePayable: 1000 },
-  { id: "5", name: "Bibi Howa", expected: 8000, cumulativePayable: 0 },
+  { id: "1", name: "Sabbir", expectedHistory: [{ amount: 10000, effectiveDate: "2024-01-01" }], cumulativePayable: 0 },
+  { id: "2", name: "Sumon", expectedHistory: [{ amount: 10000, effectiveDate: "2024-01-01" }], cumulativePayable: 5000 },
+  { id: "3", name: "Juel", expectedHistory: [{ amount: 12000, effectiveDate: "2024-01-01" }], cumulativePayable: 0 },
+  { id: "4", name: "Suma", expectedHistory: [{ amount: 5000, effectiveDate: "2024-01-01" }], cumulativePayable: 1000 },
+  { id: "5", name: "Bibi Howa", expectedHistory: [{ amount: 8000, effectiveDate: "2024-01-01" }], cumulativePayable: 0 },
 ]
 
 export const payouts: Payout[] = [
@@ -44,17 +44,17 @@ export const otherExpenses: Expense[] = [
 ]
 
 export const rooms: Room[] = [
-  { id: "r101", number: "101", rentAmount: 8000 },
-  { id: "r102", number: "102", rentAmount: 8500 },
-  { id: "r201", number: "201", rentAmount: 9000 },
-  { id: "r202", number: "202", rentAmount: 7500 },
+  { id: "r101", number: "101", rentHistory: [{ amount: 8000, effectiveDate: "2024-01-01" }] },
+  { id: "r102", number: "102", rentHistory: [{ amount: 8500, effectiveDate: "2024-01-01" }] },
+  { id: "r201", number: "201", rentHistory: [{ amount: 9000, effectiveDate: "2024-01-01" }] },
+  { id: "r202", number: "202", rentHistory: [{ amount: 7500, effectiveDate: "2024-01-01" }] },
 ]
 
 export const renters: Renter[] = [
-  { id: "t1", name: "Mr. Karim", roomId: "r101", rentDue: 8000, cumulativePayable: 0 },
-  { id: "t2", name: "Ms. Salma", roomId: "r102", rentDue: 8500, cumulativePayable: 3500 },
-  { id: "t3", name: "Mr. Farooq", roomId: "r201", rentDue: 9000, cumulativePayable: 1000 },
-  { id: "t4", name: "Mrs. Anika", roomId: "r202", rentDue: 7500, cumulativePayable: 0 },
+  { id: "t1", name: "Mr. Karim", roomId: "r101", cumulativePayable: 0 },
+  { id: "t2", name: "Ms. Salma", roomId: "r102", cumulativePayable: 3500 },
+  { id: "t3", name: "Mr. Farooq", roomId: "r201", cumulativePayable: 1000 },
+  { id: "t4", name: "Mrs. Anika", roomId: "r202", cumulativePayable: 0 },
 ]
 
 

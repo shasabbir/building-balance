@@ -52,6 +52,7 @@ import {
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
 import { isSameMonth, lastDayOfMonth } from "date-fns"
+import { getEffectiveValue } from "@/lib/utils"
 
 
 export default function FamilyPaymentsPage() {
@@ -115,11 +116,13 @@ export default function FamilyPaymentsPage() {
 
   const familyMembersWithSummary = React.useMemo(() => {
     return familyMembers.map(member => {
+      const expected = getEffectiveValue(member.expectedHistory, selectedDate)
       const memberPayoutsThisMonth = payouts.filter(p => p.familyMemberId === member.id && isSameMonth(new Date(p.date), selectedDate))
       const paid = memberPayoutsThisMonth.reduce((acc, p) => acc + p.amount, 0)
-      const payable = member.expected - paid
+      const payable = expected - paid
       return {
         ...member,
+        expected,
         paid,
         payable: payable > 0 ? payable : 0,
       }

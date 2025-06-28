@@ -1,7 +1,7 @@
 export interface FamilyMember {
   id: string
   name: string
-  expected: number
+  expectedHistory: { amount: number, effectiveDate: string }[]
   cumulativePayable: number
 }
 
@@ -32,14 +32,13 @@ export interface Expense {
 export interface Room {
   id: string
   number: string
-  rentAmount: number
+  rentHistory: { amount: number, effectiveDate: string }[]
 }
 
 export interface Renter {
   id: string
   name: string
   roomId: string
-  rentDue: number
   cumulativePayable: number
 }
 

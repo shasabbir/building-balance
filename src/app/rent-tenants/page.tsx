@@ -53,6 +53,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
 import { isSameMonth, lastDayOfMonth } from "date-fns"
+import { getEffectiveValue } from "@/lib/utils"
 
 
 export default function RentTenantsPage() {
@@ -74,7 +75,6 @@ export default function RentTenantsPage() {
   // Renter form state
   const [renterName, setRenterName] = React.useState("")
   const [renterRoomId, setRenterRoomId] = React.useState("")
-  const [renterRentDue, setRenterRentDue] = React.useState("")
 
   // Payment form state
   const [selectedTenantId, setSelectedTenantId] = React.useState("")
@@ -94,30 +94,26 @@ export default function RentTenantsPage() {
     if (renter) {
       setRenterName(renter.name)
       setRenterRoomId(renter.roomId)
-      setRenterRentDue(renter.rentDue.toString())
     } else {
       setRenterName("")
       setRenterRoomId("")
-      setRenterRentDue("")
     }
     setIsRenterDialogOpen(true)
   }
 
   const handleRenterSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!renterName || !renterRoomId || !renterRentDue) return
+    if (!renterName || !renterRoomId) return
 
     const renterData = {
       name: renterName,
       roomId: renterRoomId,
-      rentDue: parseFloat(renterRentDue),
-      cumulativePayable: editingRenter ? editingRenter.cumulativePayable : 0, // This could be recalculated
     }
 
     if (editingRenter) {
       setRenters(renters => renters.map(r => r.id === editingRenter.id ? { ...r, ...renterData } : r))
     } else {
-      setRenters(prev => [{ id: `t${Date.now()}`, ...renterData }, ...prev])
+      setRenters(prev => [{ id: `t${Date.now()}`, ...renterData, cumulativePayable: 0 }, ...prev])
     }
     setIsRenterDialogOpen(false)
   }
@@ -171,7 +167,8 @@ export default function RentTenantsPage() {
     setEditingRoom(room)
     if (room) {
         setRoomNumber(room.number)
-        setRoomRentAmount(room.rentAmount.toString())
+        const currentRent = getEffectiveValue(room.rentHistory, new Date())
+        setRoomRentAmount(currentRent.toString())
     } else {
         setRoomNumber("")
         setRoomRentAmount("")
@@ -183,15 +180,37 @@ export default function RentTenantsPage() {
     e.preventDefault()
     if (!roomNumber || !roomRentAmount) return
 
-    const roomData = {
-        number: roomNumber,
-        rentAmount: parseFloat(roomRentAmount),
-    }
-
     if (editingRoom) {
-        setRooms(rooms => rooms.map(r => r.id === editingRoom.id ? { ...r, ...roomData } : r))
+      const newRentAmount = parseFloat(roomRentAmount)
+      const currentRentAmount = getEffectiveValue(editingRoom.rentHistory, new Date())
+      
+      let updatedHistory = [...editingRoom.rentHistory]
+
+      if (newRentAmount !== currentRentAmount) {
+          const today = new Date();
+          const existingTodayIndex = updatedHistory.findIndex(
+            (entry) => new Date(entry.effectiveDate).toDateString() === today.toDateString()
+          );
+
+          if (existingTodayIndex !== -1) {
+            updatedHistory[existingTodayIndex].amount = newRentAmount;
+          } else {
+            updatedHistory.push({ amount: newRentAmount, effectiveDate: today.toISOString() });
+          }
+      }
+
+      const roomData = {
+        number: roomNumber,
+        rentHistory: updatedHistory,
+      }
+      setRooms(rooms => rooms.map(r => r.id === editingRoom.id ? { ...r, ...roomData } : r))
     } else {
-        setRooms(prev => [{ id: `r${Date.now()}`, ...roomData }, ...prev])
+        const roomData = {
+            id: `r${Date.now()}`,
+            number: roomNumber,
+            rentHistory: [{ amount: parseFloat(roomRentAmount), effectiveDate: new Date().toISOString() }],
+        }
+        setRooms(prev => [roomData, ...prev])
     }
     setIsRoomDialogOpen(false)
   }
@@ -238,14 +257,16 @@ export default function RentTenantsPage() {
   // --- Memoized Calculations ---
   const rentersWithSummary = React.useMemo(() => {
     return renters.map(renter => {
+      const room = rooms.find(r => r.id === renter.roomId)
+      const rentDue = room ? getEffectiveValue(room.rentHistory, selectedDate) : 0
       const renterPaymentsThisMonth = rentPayments.filter(p => p.renterId === renter.id && isSameMonth(new Date(p.date), selectedDate))
       const rentPaidThisMonth = renterPaymentsThisMonth.reduce((acc, p) => acc + p.amount, 0)
-      const payableThisMonth = renter.rentDue - rentPaidThisMonth
+      const payableThisMonth = rentDue - rentPaidThisMonth
       return {
         ...renter,
+        rentDue,
         rentPaidThisMonth,
         payableThisMonth: payableThisMonth > 0 ? payableThisMonth : 0,
-        // NOTE: Cumulative payable is not calculated dynamically from history
       }
     }).sort((a,b) => parseInt(getRoomNumber(a.roomId)) - parseInt(getRoomNumber(b.roomId)));
   }, [renters, rentPayments, rooms, selectedDate])
@@ -403,7 +424,7 @@ export default function RentTenantsPage() {
               <TableRow>
                 <TableHead>Room Number</TableHead>
                 <TableHead>Occupant</TableHead>
-                <TableHead className="text-right">Rent Amount</TableHead>
+                <TableHead className="text-right">Current Rent</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -412,11 +433,12 @@ export default function RentTenantsPage() {
             <TableBody>
               {sortedRooms.map((room) => {
                 const occupant = renters.find(r => r.roomId === room.id);
+                const currentRent = getEffectiveValue(room.rentHistory, new Date());
                 return (
                     <TableRow key={room.id}>
                         <TableCell className="font-medium">{room.number}</TableCell>
                         <TableCell>{occupant ? occupant.name : <span className="text-muted-foreground">Vacant</span>}</TableCell>
-                        <TableCell className="text-right">৳{room.rentAmount.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">৳{currentRent.toLocaleString()}</TableCell>
                         <TableCell>
                             <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -472,10 +494,6 @@ export default function RentTenantsPage() {
                         })}
                         </SelectContent>
                     </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="rent-due" className="text-right">Rent Due</Label>
-                    <Input id="rent-due" type="number" value={renterRentDue} onChange={(e) => setRenterRentDue(e.target.value)} className="col-span-3" />
                 </div>
               </div>
               <DialogFooter>
