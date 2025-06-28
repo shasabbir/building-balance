@@ -427,7 +427,7 @@ export default function RentTenantsPage() {
               <TableRow>
                 <TableHead>Room Number</TableHead>
                 <TableHead>Occupant</TableHead>
-                <TableHead className="text-right">Current Rent</TableHead>
+                <TableHead className="text-right">Applicable Rent</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -436,12 +436,12 @@ export default function RentTenantsPage() {
             <TableBody>
               {sortedRooms.map((room) => {
                 const occupant = renters.find(r => r.roomId === room.id);
-                const currentRent = getEffectiveValue(room.rentHistory, new Date());
+                const applicableRent = getEffectiveValue(room.rentHistory, selectedDate);
                 return (
                     <TableRow key={room.id}>
                         <TableCell className="font-medium">{room.number}</TableCell>
                         <TableCell>{occupant ? occupant.name : <span className="text-muted-foreground">Vacant</span>}</TableCell>
-                        <TableCell className="text-right">৳{currentRent.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">৳{applicableRent.toLocaleString()}</TableCell>
                         <TableCell>
                             <DropdownMenu>
                             <DropdownMenuTrigger asChild>
