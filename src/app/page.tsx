@@ -15,7 +15,7 @@ import { PageHeader } from '@/components/page-header'
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
-import { isSameMonth, subMonths } from 'date-fns'
+import { isSameMonth, subMonths, lastDayOfMonth } from 'date-fns'
 import type { Renter, RentPayment, FamilyMember, Payout, UtilityBill, Expense, Room } from "@/lib/types"
 import { getEffectiveValue } from "@/lib/utils"
 
@@ -29,6 +29,9 @@ const calculateMonthlySummary = (
   allExpenses: Expense[],
   allRooms: Room[]
 ) => {
+  // Determine the reference date for "expected" calculations
+  const referenceDate = isSameMonth(targetDate, new Date()) ? new Date() : lastDayOfMonth(targetDate);
+  
   // Filter transactions for the target month
   const monthlyRentPayments = allRentPayments.filter(p => isSameMonth(new Date(p.date), targetDate));
   const monthlyPayouts = allPayouts.filter(p => isSameMonth(new Date(p.date), targetDate));
@@ -44,12 +47,12 @@ const calculateMonthlySummary = (
   // Calculate expected totals for the target month using historical data
   const rentExpected = allRenters.reduce((sum, renter) => {
     const room = allRooms.find(r => r.id === renter.roomId);
-    const rentDue = room ? getEffectiveValue(room.rentHistory, targetDate) : 0;
+    const rentDue = room ? getEffectiveValue(room.rentHistory, referenceDate) : 0;
     return sum + rentDue;
   }, 0);
   const rentPayable = rentExpected - rentCollected;
   
-  const payoutsExpected = allFamilyMembers.reduce((sum, m) => sum + getEffectiveValue(m.expectedHistory, targetDate), 0);
+  const payoutsExpected = allFamilyMembers.reduce((sum, m) => sum + getEffectiveValue(m.expectedHistory, referenceDate), 0);
   const payoutsPayable = payoutsExpected - payoutsPaid;
   
   const totalIncome = rentCollected;

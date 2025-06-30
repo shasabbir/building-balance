@@ -78,6 +78,9 @@ export default function FamilyPaymentsPage() {
   const [memberName, setMemberName] = React.useState("")
   const [memberExpected, setMemberExpected] = React.useState("")
 
+  const referenceDate = React.useMemo(() => (
+    isSameMonth(selectedDate, new Date()) ? new Date() : lastDayOfMonth(selectedDate)
+  ), [selectedDate]);
   
   const openPayoutDialog = (payout: Payout | null) => {
       setEditingPayout(payout)
@@ -212,7 +215,7 @@ export default function FamilyPaymentsPage() {
 
   const familyMembersWithSummary = React.useMemo(() => {
     return familyMembers.map(member => {
-      const expected = getEffectiveValue(member.expectedHistory, selectedDate)
+      const expected = getEffectiveValue(member.expectedHistory, referenceDate)
       const memberPayoutsThisMonth = payouts.filter(p => p.familyMemberId === member.id && isSameMonth(new Date(p.date), selectedDate))
       const paid = memberPayoutsThisMonth.reduce((acc, p) => acc + p.amount, 0)
       const payable = expected - paid
@@ -223,7 +226,7 @@ export default function FamilyPaymentsPage() {
         payable: payable > 0 ? payable : 0,
       }
     })
-  }, [payouts, familyMembers, selectedDate])
+  }, [payouts, familyMembers, selectedDate, referenceDate])
   
   const monthlyPayouts = React.useMemo(() => {
     return payouts
@@ -348,7 +351,7 @@ export default function FamilyPaymentsPage() {
               {familyMembers.map((member) => (
                 <TableRow key={member.id}>
                   <TableCell className="font-medium">{member.name}</TableCell>
-                  <TableCell className="text-right">৳{getEffectiveValue(member.expectedHistory, selectedDate).toLocaleString()}</TableCell>
+                  <TableCell className="text-right">৳{getEffectiveValue(member.expectedHistory, referenceDate).toLocaleString()}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

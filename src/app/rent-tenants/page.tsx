@@ -85,6 +85,10 @@ export default function RentTenantsPage() {
   const [roomNumber, setRoomNumber] = React.useState("")
   const [roomRentAmount, setRoomRentAmount] = React.useState("")
 
+  const referenceDate = React.useMemo(() => (
+    isSameMonth(selectedDate, new Date()) ? new Date() : lastDayOfMonth(selectedDate)
+  ), [selectedDate]);
+
   const getRoomNumber = (roomId: string) => {
     return rooms.find(r => r.id === roomId)?.number || "N/A"
   }
@@ -261,7 +265,7 @@ export default function RentTenantsPage() {
   const rentersWithSummary = React.useMemo(() => {
     return renters.map(renter => {
       const room = rooms.find(r => r.id === renter.roomId)
-      const rentDue = room ? getEffectiveValue(room.rentHistory, selectedDate) : 0
+      const rentDue = room ? getEffectiveValue(room.rentHistory, referenceDate) : 0
       const renterPaymentsThisMonth = rentPayments.filter(p => p.renterId === renter.id && isSameMonth(new Date(p.date), selectedDate))
       const rentPaidThisMonth = renterPaymentsThisMonth.reduce((acc, p) => acc + p.amount, 0)
       const payableThisMonth = rentDue - rentPaidThisMonth
@@ -272,7 +276,7 @@ export default function RentTenantsPage() {
         payableThisMonth: payableThisMonth > 0 ? payableThisMonth : 0,
       }
     }).sort((a,b) => parseInt(getRoomNumber(a.roomId)) - parseInt(getRoomNumber(b.roomId)));
-  }, [renters, rentPayments, rooms, selectedDate])
+  }, [renters, rentPayments, rooms, selectedDate, referenceDate])
   
   const monthlyRentPayments = React.useMemo(() => {
       return rentPayments
@@ -436,7 +440,7 @@ export default function RentTenantsPage() {
             <TableBody>
               {sortedRooms.map((room) => {
                 const occupant = renters.find(r => r.roomId === room.id);
-                const applicableRent = getEffectiveValue(room.rentHistory, selectedDate);
+                const applicableRent = getEffectiveValue(room.rentHistory, referenceDate);
                 return (
                     <TableRow key={room.id}>
                         <TableCell className="font-medium">{room.number}</TableCell>
