@@ -1,10 +1,11 @@
+
 import { FamilyMember, UtilityBill, Expense, Renter, Room, Payout, RentPayment } from "./types"
 
 export const familyMembers: FamilyMember[] = [
   { id: "1", name: "Sabbir", expectedHistory: [{ amount: 10000, effectiveDate: "2024-01-01" }], cumulativePayable: 0 },
-  { id: "2", name: "Sumon", expectedHistory: [{ amount: 10000, effectiveDate: "2024-01-01" }], cumulativePayable: 5000 },
+  { id: "2", name: "Sumon", expectedHistory: [{ amount: 10000, effectiveDate: "2024-01-01" }], cumulativePayable: 0 },
   { id: "3", name: "Juel", expectedHistory: [{ amount: 12000, effectiveDate: "2024-01-01" }], cumulativePayable: 0 },
-  { id: "4", name: "Suma", expectedHistory: [{ amount: 5000, effectiveDate: "2024-01-01" }], cumulativePayable: 1000 },
+  { id: "4", name: "Suma", expectedHistory: [{ amount: 5000, effectiveDate: "2024-01-01" }], cumulativePayable: 0 },
   { id: "5", name: "Bibi Howa", expectedHistory: [{ amount: 8000, effectiveDate: "2024-01-01" }], cumulativePayable: 0 },
 ]
 
@@ -52,8 +53,8 @@ export const rooms: Room[] = [
 
 export const renters: Renter[] = [
   { id: "t1", name: "Mr. Karim", roomId: "r101", cumulativePayable: 0 },
-  { id: "t2", name: "Ms. Salma", roomId: "r102", cumulativePayable: 3500 },
-  { id: "t3", name: "Mr. Farooq", roomId: "r201", cumulativePayable: 1000 },
+  { id: "t2", name: "Ms. Salma", roomId: "r102", cumulativePayable: 0 },
+  { id: "t3", name: "Mr. Farooq", roomId: "r201", cumulativePayable: 0 },
   { id: "t4", name: "Mrs. Anika", roomId: "r202", cumulativePayable: 0 },
 ]
 

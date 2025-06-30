@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -8,7 +9,8 @@ import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarMenu, S
 import { Button } from "@/components/ui/button"
 import { BuildingIcon } from "./icons"
 import { useDate } from "@/contexts/date-context"
-import { format, subMonths, addMonths } from "date-fns"
+import { format, subMonths, addMonths, startOfMonth, isBefore, isSameMonth } from "date-fns"
+import { useData } from "@/contexts/data-context"
 
 const menuItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -22,6 +24,7 @@ const menuItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { selectedDate, setSelectedDate } = useDate()
+  const { initiationDate } = useData()
 
   const handlePrevMonth = () => {
     setSelectedDate(subMonths(selectedDate, 1))
@@ -30,6 +33,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const handleNextMonth = () => {
     setSelectedDate(addMonths(selectedDate, 1))
   }
+  
+  const isPrevDisabled = isBefore(startOfMonth(selectedDate), startOfMonth(initiationDate)) || isSameMonth(startOfMonth(selectedDate), startOfMonth(initiationDate));
 
   return (
     <SidebarProvider>
@@ -65,7 +70,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
             <SidebarTrigger className="md:hidden" />
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrevMonth}>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrevMonth} disabled={isPrevDisabled}>
                 <ChevronLeft className="h-4 w-4" />
                 <span className="sr-only">Previous Month</span>
               </Button>
