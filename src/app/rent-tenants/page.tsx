@@ -425,8 +425,8 @@ export default function RentTenantsPage() {
   }, [renters, selectedDate]);
 
   const totalApplicableRent = React.useMemo(() => {
-    return sortedRooms.reduce((sum, room) => sum + getEffectiveValue(room.rentHistory, new Date()), 0)
-  }, [sortedRooms]);
+    return sortedRooms.reduce((sum, room) => sum + getEffectiveValue(room.rentHistory, referenceDate), 0)
+  }, [sortedRooms, referenceDate]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -563,7 +563,7 @@ export default function RentTenantsPage() {
         <CardHeader>
           <CardTitle>Manage Rooms & Renters</CardTitle>
           <CardDescription>
-            Add, edit, or remove rooms and manage renter assignments.
+            Manage rooms and see applicable rent and occupant details for the selected month.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-8">
@@ -572,7 +572,7 @@ export default function RentTenantsPage() {
               <TableRow>
                 <TableHead>Room Number</TableHead>
                 <TableHead>Occupant</TableHead>
-                <TableHead className="text-right">Applicable Rent</TableHead>
+                <TableHead className="text-right">Rent for Month</TableHead>
                 <TableHead>
                   <span className="sr-only">Actions</span>
                 </TableHead>
@@ -580,8 +580,8 @@ export default function RentTenantsPage() {
             </TableHeader>
             <TableBody>
               {sortedRooms.map((room) => {
-                const occupant = findOccupantForRoom(room.id, new Date(), renters, true);
-                const applicableRent = getEffectiveValue(room.rentHistory, new Date());
+                const occupant = findOccupantForRoom(room.id, referenceDate, renters, true);
+                const applicableRent = getEffectiveValue(room.rentHistory, referenceDate);
                 return (
                     <TableRow key={room.id}>
                         <TableCell className="font-medium">{room.number}</TableCell>
