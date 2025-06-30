@@ -9,6 +9,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -133,12 +134,9 @@ export default function OtherExpensesPage() {
         </Button>
       </PageHeader>
       <Card>
-        <CardHeader className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <CardTitle>Expense Log</CardTitle>
-                <CardDescription>A list of all miscellaneous expenses for this month.</CardDescription>
-            </div>
-            <div className="text-2xl font-bold">Total: ৳{totalExpenses.toLocaleString()}</div>
+        <CardHeader>
+            <CardTitle>Expense Log</CardTitle>
+            <CardDescription>A list of all miscellaneous expenses for this month.</CardDescription>
         </CardHeader>
         <CardContent>
           {monthlyExpenses.length > 0 ? (
@@ -181,6 +179,13 @@ export default function OtherExpensesPage() {
                     </TableRow>
                 ))}
                 </TableBody>
+                <TableFooter>
+                    <TableRow>
+                        <TableCell colSpan={3} className="font-bold">Total</TableCell>
+                        <TableCell className="text-right font-bold">৳{totalExpenses.toLocaleString()}</TableCell>
+                        <TableCell></TableCell>
+                    </TableRow>
+                </TableFooter>
             </Table>
           ) : (
             <div className="text-center text-muted-foreground p-8">No expenses this month.</div>

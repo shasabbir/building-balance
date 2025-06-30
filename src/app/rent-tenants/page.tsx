@@ -9,6 +9,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -367,15 +368,18 @@ export default function RentTenantsPage() {
     // Find renters who are currently active but unassigned, and whose tenancy had started by the referenceDate.
     const activeRentersWithoutRooms = renters
         .filter(r => {
-            // Must be currently active and not already assigned to a room for the selected period.
-            if (r.status !== 'active' || assignedRenterIds.has(r.id)) {
-                return false;
-            }
-
-            // Must have a history to determine their start date.
+            // Renter must have an occupancy history
             if (!r.occupancyHistory || r.occupancyHistory.length === 0) {
                 return false;
             }
+
+            // Must not be already assigned to a room for the selected period.
+            if (assignedRenterIds.has(r.id)) {
+                return false;
+            }
+            
+            const currentRoomForRenter = findRoomForRenter(r, referenceDate)
+            if (currentRoomForRenter) return false;
 
             // Find their tenancy start date.
             const startDate = new Date(
@@ -392,6 +396,13 @@ export default function RentTenantsPage() {
     return [...roomSummaries, ...activeRentersWithoutRooms];
   }, [sortedRooms, renters, rentPayments, selectedDate, referenceDate]);
 
+  const rentStatusTotals = React.useMemo(() => {
+    const rentDue = rentStatusSummary.reduce((acc, s) => acc + s.rentDue, 0)
+    const rentPaidThisMonth = rentStatusSummary.reduce((acc, s) => acc + s.rentPaidThisMonth, 0)
+    const payableThisMonth = rentStatusSummary.reduce((acc, s) => acc + s.payableThisMonth, 0)
+    const cumulativePayable = rentStatusSummary.reduce((acc, s) => acc + (s.occupant?.cumulativePayable || 0), 0)
+    return { rentDue, rentPaidThisMonth, payableThisMonth, cumulativePayable }
+  }, [rentStatusSummary])
 
   const monthlyRentPayments = React.useMemo(() => {
       return rentPayments
@@ -399,6 +410,10 @@ export default function RentTenantsPage() {
         .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [rentPayments, selectedDate]);
   
+  const totalMonthlyRentPayments = React.useMemo(() => {
+    return monthlyRentPayments.reduce((acc, p) => acc + p.amount, 0)
+  }, [monthlyRentPayments])
+
   const activeRenters = React.useMemo(() => renters.filter(r => r.status === 'active'), [renters]);
   const archivedRenters = React.useMemo(() => renters.filter(r => r.status === 'archived'), [renters]);
   
@@ -409,6 +424,10 @@ export default function RentTenantsPage() {
       return !!room;
     });
   }, [renters, referenceDate]);
+
+  const totalApplicableRent = React.useMemo(() => {
+    return sortedRooms.reduce((sum, room) => sum + getEffectiveValue(room.rentHistory, new Date()), 0)
+  }, [sortedRooms])
 
   return (
     <div className="flex flex-col gap-8">
@@ -472,6 +491,15 @@ export default function RentTenantsPage() {
                 </TableRow>
               ))}
             </TableBody>
+            <TableFooter>
+                <TableRow>
+                    <TableCell colSpan={2} className="font-bold">Total</TableCell>
+                    <TableCell className="text-right font-bold">৳{rentStatusTotals.rentDue.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-bold">৳{rentStatusTotals.rentPaidThisMonth.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-bold">৳{rentStatusTotals.payableThisMonth.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-bold hidden md:table-cell">৳{rentStatusTotals.cumulativePayable.toLocaleString()}</TableCell>
+                </TableRow>
+            </TableFooter>
           </Table>
         </CardContent>
       </Card>
@@ -518,6 +546,13 @@ export default function RentTenantsPage() {
                             </TableRow>
                         ))}
                     </TableBody>
+                    <TableFooter>
+                        <TableRow>
+                            <TableCell colSpan={3} className="font-bold">Total</TableCell>
+                            <TableCell className="text-right font-bold">৳{totalMonthlyRentPayments.toLocaleString()}</TableCell>
+                            <TableCell></TableCell>
+                        </TableRow>
+                    </TableFooter>
                 </Table>
             ) : (
                 <div className="text-center text-muted-foreground p-8">No rent payments this month.</div>
@@ -571,6 +606,13 @@ export default function RentTenantsPage() {
                     </TableRow>
                 )})}
             </TableBody>
+            <TableFooter>
+                <TableRow>
+                    <TableCell colSpan={2} className="font-bold">Total</TableCell>
+                    <TableCell className="text-right font-bold">৳{totalApplicableRent.toLocaleString()}</TableCell>
+                    <TableCell></TableCell>
+                </TableRow>
+            </TableFooter>
           </Table>
 
           <div>

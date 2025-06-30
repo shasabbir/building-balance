@@ -9,6 +9,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -134,12 +135,9 @@ export default function UtilityBillsPage() {
       </PageHeader>
       
       <Card>
-        <CardHeader className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+        <CardHeader>
             <CardTitle>Utility Bills for this Month</CardTitle>
             <CardDescription>A complete log of all utility payments for the selected month.</CardDescription>
-          </div>
-          <div className="text-2xl font-bold">Total: ৳{totalAmount.toLocaleString()}</div>
         </CardHeader>
         <CardContent>
           {monthlyBills.length > 0 ? (
@@ -180,6 +178,13 @@ export default function UtilityBillsPage() {
                     </TableRow>
                 ))}
                 </TableBody>
+                <TableFooter>
+                    <TableRow>
+                        <TableCell colSpan={3} className="font-bold">Total</TableCell>
+                        <TableCell className="text-right font-bold">৳{totalAmount.toLocaleString()}</TableCell>
+                        <TableCell></TableCell>
+                    </TableRow>
+                </TableFooter>
             </Table>
           ) : (
             <div className="text-center text-muted-foreground p-8">No utility bills this month.</div>

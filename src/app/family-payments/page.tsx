@@ -9,6 +9,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -227,12 +228,29 @@ export default function FamilyPaymentsPage() {
       }
     })
   }, [payouts, familyMembers, selectedDate, referenceDate])
+
+  const summaryTotals = React.useMemo(() => {
+    return {
+        expected: familyMembersWithSummary.reduce((acc, m) => acc + m.expected, 0),
+        paid: familyMembersWithSummary.reduce((acc, m) => acc + m.paid, 0),
+        payable: familyMembersWithSummary.reduce((acc, m) => acc + m.payable, 0),
+        cumulativePayable: familyMembersWithSummary.reduce((acc, m) => acc + m.cumulativePayable, 0)
+    }
+  }, [familyMembersWithSummary])
   
   const monthlyPayouts = React.useMemo(() => {
     return payouts
         .filter(payout => isSameMonth(new Date(payout.date), selectedDate))
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }, [payouts, selectedDate])
+  
+  const totalMonthlyPayouts = React.useMemo(() => {
+    return monthlyPayouts.reduce((acc, p) => acc + p.amount, 0)
+  }, [monthlyPayouts])
+  
+  const totalExpectedPayout = React.useMemo(() => {
+    return familyMembers.reduce((sum, m) => sum + getEffectiveValue(m.expectedHistory, referenceDate), 0)
+  }, [familyMembers, referenceDate])
 
   return (
     <div className="flex flex-col gap-8">
@@ -282,6 +300,15 @@ export default function FamilyPaymentsPage() {
                 </TableRow>
               ))}
             </TableBody>
+            <TableFooter>
+                <TableRow>
+                    <TableCell className="font-bold">Total</TableCell>
+                    <TableCell className="text-right font-bold">৳{summaryTotals.expected.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-bold">৳{summaryTotals.paid.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-bold">৳{summaryTotals.payable.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-bold hidden md:table-cell">৳{summaryTotals.cumulativePayable.toLocaleString()}</TableCell>
+                </TableRow>
+            </TableFooter>
           </Table>
         </CardContent>
       </Card>
@@ -326,6 +353,13 @@ export default function FamilyPaymentsPage() {
                             </TableRow>
                         ))}
                     </TableBody>
+                    <TableFooter>
+                        <TableRow>
+                            <TableCell colSpan={2} className="font-bold">Total</TableCell>
+                            <TableCell className="text-right font-bold">৳{totalMonthlyPayouts.toLocaleString()}</TableCell>
+                            <TableCell></TableCell>
+                        </TableRow>
+                    </TableFooter>
                 </Table>
             ) : (
                 <div className="text-center text-muted-foreground p-8">No payouts this month.</div>
@@ -370,6 +404,13 @@ export default function FamilyPaymentsPage() {
                 </TableRow>
               ))}
             </TableBody>
+            <TableFooter>
+                <TableRow>
+                    <TableCell className="font-bold">Total</TableCell>
+                    <TableCell className="text-right font-bold">৳{totalExpectedPayout.toLocaleString()}</TableCell>
+                    <TableCell></TableCell>
+                </TableRow>
+            </TableFooter>
           </Table>
         </CardContent>
       </Card>
