@@ -53,7 +53,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
-import { isSameMonth, lastDayOfMonth } from "date-fns"
+import { isSameMonth, lastDayOfMonth, isAfter } from "date-fns"
 import { getEffectiveValue, findRoomForRenter, findOccupantForRoom } from "@/lib/utils"
 
 
@@ -340,8 +340,9 @@ export default function RentTenantsPage() {
   }, [rooms]);
   
   const rentStatusSummary = React.useMemo(() => {
+    // Create summaries for each room, finding the occupant for the historical reference date.
     const roomSummaries = sortedRooms.map(room => {
-        const occupant = findOccupantForRoom(room.id, referenceDate, renters, false);
+        const occupant = findOccupantForRoom(room.id, referenceDate, renters, true);
         
         if (occupant) {
             const rentDue = getEffectiveValue(room.rentHistory, referenceDate);
@@ -361,8 +362,31 @@ export default function RentTenantsPage() {
         return { room, occupant: null, rentDue: 0, rentPaidThisMonth: 0, payableThisMonth: 0 };
     });
 
+    const assignedRenterIds = new Set(roomSummaries.map(s => s.occupant?.id).filter(Boolean));
+
+    // Find renters who are currently active but unassigned, and whose tenancy had started by the referenceDate.
     const activeRentersWithoutRooms = renters
-        .filter(r => r.status === 'active' && !findRoomForRenter(r, referenceDate))
+        .filter(r => {
+            // Must be currently active and not already assigned to a room for the selected period.
+            if (r.status !== 'active' || assignedRenterIds.has(r.id)) {
+                return false;
+            }
+
+            // Must have a history to determine their start date.
+            if (!r.occupancyHistory || r.occupancyHistory.length === 0) {
+                return false;
+            }
+
+            // Find their tenancy start date.
+            const startDate = new Date(
+                r.occupancyHistory.reduce((earliest, entry) => 
+                    new Date(entry.effectiveDate) < new Date(earliest.effectiveDate) ? entry : earliest
+                ).effectiveDate
+            );
+
+            // Only include them if their tenancy had started on or before the reference date.
+            return !isAfter(startDate, lastDayOfMonth(referenceDate));
+        })
         .map(r => ({ room: null, occupant: r, rentDue: 0, rentPaidThisMonth: 0, payableThisMonth: 0 }));
 
     return [...roomSummaries, ...activeRentersWithoutRooms];
@@ -380,6 +404,7 @@ export default function RentTenantsPage() {
   
   const eligibleRentersForPayment = React.useMemo(() => {
     return renters.filter(renter => {
+      // A renter is eligible if they occupied a room at any point on the reference date
       const room = findRoomForRenter(renter, referenceDate);
       return !!room;
     });
@@ -425,7 +450,7 @@ export default function RentTenantsPage() {
             </TableHeader>
             <TableBody>
               {rentStatusSummary.map(({ room, occupant, rentDue, rentPaidThisMonth, payableThisMonth }) => (
-                <TableRow key={room?.id || occupant.id}>
+                <TableRow key={room?.id || occupant?.id}>
                   <TableCell><Badge variant="secondary">{room ? room.number : "Unassigned"}</Badge></TableCell>
                   <TableCell className="font-medium">{occupant ? occupant.name : <span className="text-muted-foreground">Vacant</span>}</TableCell>
                   {occupant ? (
