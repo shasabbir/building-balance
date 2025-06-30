@@ -54,7 +54,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
-import { isSameMonth, lastDayOfMonth, isAfter, isBefore, startOfMonth } from "date-fns"
+import { isSameMonth, lastDayOfMonth, isAfter, isBefore, startOfMonth, subMonths } from "date-fns"
 import { getEffectiveValue, findRoomForRenter, findOccupantForRoom } from "@/lib/utils"
 
 
@@ -120,7 +120,7 @@ export default function RentTenantsPage() {
 
     // Check if the selected room is already occupied by another active renter
     if (newRoomId) {
-        const occupant = findOccupantForRoom(newRoomId, new Date(), renters);
+        const occupant = findOccupantForRoom(newRoomId, new Date(), renters, true);
         if (occupant && occupant.id !== editingRenter?.id) {
             toast({
                 variant: "destructive",
@@ -139,25 +139,6 @@ export default function RentTenantsPage() {
 
                 let updatedHistory = [...occupancyHistory];
                 if (!lastEntry || lastEntry.roomId !== newRoomId) {
-                    // Before adding a new occupancy, if the renter is moving to a new room,
-                    // we need to "move them out" of their previous room.
-                    if (newRoomId) {
-                        const previousOccupant = findOccupantForRoom(newRoomId, new Date(), renters)
-                        if (previousOccupant && previousOccupant.id !== editingRenter.id) {
-                            // This room is taken, so we need to archive the previous occupant
-                             setRenters(rs => rs.map(prevR => {
-                                if (prevR.id === previousOccupant.id) {
-                                    return {
-                                        ...prevR,
-                                        status: 'archived',
-                                        occupancyHistory: [...prevR.occupancyHistory, { roomId: null, effectiveDate: new Date().toISOString() }]
-                                    }
-                                }
-                                return prevR
-                            }))
-                        }
-                    }
-
                     updatedHistory.push({ roomId: newRoomId, effectiveDate: today });
                 }
 
@@ -186,12 +167,14 @@ export default function RentTenantsPage() {
   const handleArchiveRenter = () => {
     if (!itemToArchive) return;
     
+    const archiveEffectiveDate = lastDayOfMonth(subMonths(new Date(), 1));
+
     setRenters(renters => renters.map(r => {
         if (r.id === itemToArchive.id) {
             return {
                 ...r,
                 status: 'archived',
-                occupancyHistory: [...r.occupancyHistory, { roomId: null, effectiveDate: new Date().toISOString() }]
+                occupancyHistory: [...r.occupancyHistory, { roomId: null, effectiveDate: archiveEffectiveDate.toISOString() }]
             }
         }
         return r;
@@ -378,12 +361,6 @@ export default function RentTenantsPage() {
           return false;
         }
 
-        // A renter should not be in this list if they were never assigned a room during this month.
-        const roomForRenterThisMonth = findRoomForRenter(r, referenceDate);
-        if (roomForRenterThisMonth) {
-          return false;
-        }
-        
         // Their tenancy must have started by the end of this month.
         const tenancyStartDate = new Date(
           r.occupancyHistory.reduce((earliest, entry) =>
@@ -401,6 +378,12 @@ export default function RentTenantsPage() {
           .sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime())[0];
 
         if (moveOutEntry && isBefore(new Date(moveOutEntry.effectiveDate), startOfMonth(selectedDate))) {
+          return false;
+        }
+        
+        // A renter should not be in this list if they were never assigned a room during this month.
+        const roomForRenterThisMonth = findRoomForRenter(r, referenceDate);
+        if (roomForRenterThisMonth) {
           return false;
         }
 
