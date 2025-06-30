@@ -1,150 +1,248 @@
 
 'use client'
 import * as React from 'react'
-import { familyMembers as initialFamilyMembers, payouts as initialPayouts, utilityBills as initialUtilityBills, otherExpenses as initialExpenses, renters as initialRenters, rooms as initialRooms, rentPayments as initialRentPayments } from "@/lib/data"
 import type { FamilyMember, Payout, UtilityBill, Expense, Room, Renter, RentPayment } from '@/lib/types'
 import { getEffectiveValue, findRoomForRenter } from '@/lib/utils'
 import { startOfMonth, isBefore, addMonths, isSameMonth, lastDayOfMonth } from 'date-fns'
 import { useDate } from './date-context'
+import { api } from '@/services/api'
+import { useToast } from '@/hooks/use-toast'
 
 type DataContextType = {
+  // State
   familyMembers: FamilyMember[]
-  setFamilyMembers: React.Dispatch<React.SetStateAction<FamilyMember[]>>
   payouts: Payout[]
-  setPayouts: React.Dispatch<React.SetStateAction<Payout[]>>
   utilityBills: UtilityBill[]
-  setUtilityBills: React.Dispatch<React.SetStateAction<UtilityBill[]>>
   otherExpenses: Expense[]
-  setOtherExpenses: React.Dispatch<React.SetStateAction<Expense[]>>
   rooms: Room[]
-  setRooms: React.Dispatch<React.SetStateAction<Room[]>>
   renters: Renter[]
-  setRenters: React.Dispatch<React.SetStateAction<Renter[]>>
   rentPayments: RentPayment[]
-  setRentPayments: React.Dispatch<React.SetStateAction<RentPayment[]>>
   initiationDate: Date
-  setInitiationDate: React.Dispatch<React.SetStateAction<Date>>
+  
+  // Loading states
+  isLoading: boolean
+  isSyncing: boolean
+
+  // Actions
+  addRenter: (data: Omit<Renter, 'id' | 'cumulativePayable' | 'status'>) => Promise<void>
+  updateRenter: (data: Renter) => Promise<void>
+  archiveRenter: (data: Renter) => Promise<void>
+
+  addRoom: (data: Omit<Room, 'id'>) => Promise<void>
+  updateRoom: (data: Room) => Promise<void>
+  deleteRoom: (id: string) => Promise<void>
+  
+  addRentPayment: (data: Omit<RentPayment, 'id'>) => Promise<void>
+  updateRentPayment: (data: RentPayment) => Promise<void>
+  deleteRentPayment: (id: string) => Promise<void>
+
+  addFamilyMember: (data: Omit<FamilyMember, 'id' | 'cumulativePayable'>) => Promise<void>
+  updateFamilyMember: (data: FamilyMember) => Promise<void>
+  deleteFamilyMember: (id: string) => Promise<void>
+
+  addPayout: (data: Omit<Payout, 'id'>) => Promise<void>
+  updatePayout: (data: Payout) => Promise<void>
+  deletePayout: (id: string) => Promise<void>
+
+  addUtilityBill: (data: Omit<UtilityBill, 'id'>) => Promise<void>
+  updateUtilityBill: (data: UtilityBill) => Promise<void>
+  deleteUtilityBill: (id: string) => Promise<void>
+  
+  addExpense: (data: Omit<Expense, 'id'>) => Promise<void>
+  updateExpense: (data: Expense) => Promise<void>
+  deleteExpense: (id: string) => Promise<void>
+
+  updateInitiationDate: (date: Date) => Promise<void>
+  clearAllData: () => Promise<void>
+  syncData: () => Promise<void>
 }
 
 const DataContext = React.createContext<DataContextType | undefined>(undefined)
 
-export function DataProvider({ children }: { children: React.ReactNode }) {
-  const { selectedDate } = useDate()
-  const [isLoaded, setIsLoaded] = React.useState(false)
-
-  // Initialize with default data
-  const [familyMembers, setFamilyMembers] = React.useState<FamilyMember[]>(initialFamilyMembers)
-  const [payouts, setPayouts] = React.useState<Payout[]>(initialPayouts)
-  const [utilityBills, setUtilityBills] = React.useState<UtilityBill[]>(initialUtilityBills)
-  const [otherExpenses, setOtherExpenses] = React.useState<Expense[]>(initialExpenses)
-  const [rooms, setRooms] = React.useState<Room[]>(initialRooms)
-  const [renters, setRenters] = React.useState<Renter[]>(initialRenters)
-  const [rentPayments, setRentPayments] = React.useState<RentPayment[]>(initialRentPayments)
-  const [initiationDate, setInitiationDate] = React.useState<Date>(new Date('2024-01-01'))
-
-  // Load from localStorage on mount (client-side only)
-  React.useEffect(() => {
+// Helper to get all data from local storage
+const getLocalData = () => {
     try {
-        const storedFamilyMembers = localStorage.getItem('familyMembers');
-        if (storedFamilyMembers) setFamilyMembers(JSON.parse(storedFamilyMembers));
+        const familyMembers = localStorage.getItem('familyMembers')
+        const payouts = localStorage.getItem('payouts')
+        const utilityBills = localStorage.getItem('utilityBills')
+        const otherExpenses = localStorage.getItem('otherExpenses')
+        const rooms = localStorage.getItem('rooms')
+        const renters = localStorage.getItem('renters')
+        const rentPayments = localStorage.getItem('rentPayments')
+        const initiationDate = localStorage.getItem('initiationDate')
 
-        const storedPayouts = localStorage.getItem('payouts');
-        if (storedPayouts) setPayouts(JSON.parse(storedPayouts));
-        
-        const storedUtilityBills = localStorage.getItem('utilityBills');
-        if (storedUtilityBills) setUtilityBills(JSON.parse(storedUtilityBills));
-        
-        const storedOtherExpenses = localStorage.getItem('otherExpenses');
-        if (storedOtherExpenses) setOtherExpenses(JSON.parse(storedOtherExpenses));
-        
-        const storedRooms = localStorage.getItem('rooms');
-        if (storedRooms) setRooms(JSON.parse(storedRooms));
-        
-        const storedRenters = localStorage.getItem('renters');
-        if (storedRenters) setRenters(JSON.parse(storedRenters));
-        
-        const storedRentPayments = localStorage.getItem('rentPayments');
-        if (storedRentPayments) setRentPayments(JSON.parse(storedRentPayments));
-        
-        const storedInitiationDate = localStorage.getItem('initiationDate');
-        if (storedInitiationDate) setInitiationDate(new Date(JSON.parse(storedInitiationDate)));
+        return {
+            familyMembers: familyMembers ? JSON.parse(familyMembers) : [],
+            payouts: payouts ? JSON.parse(payouts) : [],
+            utilityBills: utilityBills ? JSON.parse(utilityBills) : [],
+            otherExpenses: otherExpenses ? JSON.parse(otherExpenses) : [],
+            rooms: rooms ? JSON.parse(rooms) : [],
+            renters: renters ? JSON.parse(renters) : [],
+            rentPayments: rentPayments ? JSON.parse(rentPayments) : [],
+            initiationDate: initiationDate ? new Date(JSON.parse(initiationDate)) : new Date('2024-01-01'),
+        }
+    } catch (e) {
+        return null
+    }
+}
 
+// Helper to set all data to local storage
+const setLocalData = (data: Omit<AllData, 'initiationDate'> & {initiationDate: string | Date}) => {
+    localStorage.setItem('familyMembers', JSON.stringify(data.familyMembers || []));
+    localStorage.setItem('payouts', JSON.stringify(data.payouts || []));
+    localStorage.setItem('utilityBills', JSON.stringify(data.utilityBills || []));
+    localStorage.setItem('otherExpenses', JSON.stringify(data.otherExpenses || []));
+    localStorage.setItem('rooms', JSON.stringify(data.rooms || []));
+    localStorage.setItem('renters', JSON.stringify(data.renters || []));
+    localStorage.setItem('rentPayments', JSON.stringify(data.rentPayments || []));
+    localStorage.setItem('initiationDate', JSON.stringify(data.initiationDate instanceof Date ? data.initiationDate.toISOString() : data.initiationDate));
+}
+
+type AllData = {
+    familyMembers: FamilyMember[],
+    payouts: Payout[],
+    utilityBills: UtilityBill[],
+    otherExpenses: Expense[],
+    rooms: Room[],
+    renters: Renter[],
+    rentPayments: RentPayment[],
+    initiationDate: Date
+}
+
+export function DataProvider({ children }: { children: React.ReactNode }) {
+  const { toast } = useToast()
+  const { selectedDate } = useDate()
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [isSyncing, setIsSyncing] = React.useState(true)
+
+  const [data, setData] = React.useState<AllData>({
+    familyMembers: [],
+    payouts: [],
+    utilityBills: [],
+    otherExpenses: [],
+    rooms: [],
+    renters: [],
+    rentPayments: [],
+    initiationDate: new Date('2024-01-01'),
+  })
+
+  const handleApiResponse = (apiData: any) => {
+    const newData = {
+        ...apiData,
+        initiationDate: new Date(apiData.initiationDate),
+    };
+    setData(newData);
+    setLocalData(newData);
+  }
+
+  const syncData = React.useCallback(async () => {
+    setIsSyncing(true);
+    try {
+        const freshData = await api.sync();
+        handleApiResponse(freshData);
     } catch (error) {
-        console.error("Failed to parse from localStorage", error);
+        console.error("Sync failed:", error);
+        toast({ variant: 'destructive', title: 'Sync Failed', description: "Could not connect to the server. Displaying local data." })
+    } finally {
+        setIsSyncing(false);
     }
-    setIsLoaded(true); // Mark as loaded after attempting to read from storage
-  }, []);
+  }, [toast]);
 
-  // Save to localStorage on change
+  // Load from localStorage on mount, then sync with API
   React.useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem('familyMembers', JSON.stringify(familyMembers));
-        localStorage.setItem('payouts', JSON.stringify(payouts));
-        localStorage.setItem('utilityBills', JSON.stringify(utilityBills));
-        localStorage.setItem('otherExpenses', JSON.stringify(otherExpenses));
-        localStorage.setItem('rooms', JSON.stringify(rooms));
-        localStorage.setItem('renters', JSON.stringify(renters));
-        localStorage.setItem('rentPayments', JSON.stringify(rentPayments));
-        localStorage.setItem('initiationDate', JSON.stringify(initiationDate.toISOString()));
-      } catch (error) {
-        console.error("Failed to save to localStorage", error);
-      }
+    const localData = getLocalData();
+    if (localData) {
+        setData(localData);
     }
-  }, [isLoaded, familyMembers, payouts, utilityBills, otherExpenses, rooms, renters, rentPayments, initiationDate]);
-  
-  const processedFamilyMembers = React.useMemo(() => {
-    return familyMembers.map(member => {
+    setIsLoading(false);
+    syncData();
+  }, [syncData]);
+
+  const performApiAction = async (action: () => Promise<any>, successMessage: string) => {
+      try {
+          const freshData = await action();
+          handleApiResponse(freshData);
+          toast({ title: 'Success', description: successMessage });
+      } catch (error) {
+          console.error("API Action Failed:", error);
+          toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
+          throw error; // Re-throw to be caught by the calling component
+      }
+  };
+
+  // Memoized processed data
+  const processedData = React.useMemo(() => {
+    const { renters, familyMembers, payouts, rentPayments, rooms, initiationDate } = data;
+
+    const processedFamilyMembers = familyMembers.map(member => {
         let cumulativePayable = 0;
         let currentDate = startOfMonth(initiationDate);
-
-        // Loop from initiation month up to and including the selected month.
         while (isBefore(currentDate, selectedDate) || isSameMonth(currentDate, selectedDate)) {
             const referenceDate = lastDayOfMonth(currentDate);
             const expected = getEffectiveValue(member.expectedHistory, referenceDate);
-            const paid = payouts
-                .filter(p => p.familyMemberId === member.id && isSameMonth(new Date(p.date), currentDate))
-                .reduce((sum, p) => sum + p.amount, 0);
+            const paid = payouts.filter(p => p.familyMemberId === member.id && isSameMonth(new Date(p.date), currentDate)).reduce((sum, p) => sum + p.amount, 0);
             cumulativePayable += (expected - paid);
             currentDate = addMonths(currentDate, 1);
         }
         return { ...member, cumulativePayable: cumulativePayable > 0 ? cumulativePayable : 0 };
     });
-  }, [familyMembers, payouts, initiationDate, selectedDate]);
 
-  const processedRenters = React.useMemo(() => {
-    return renters.map(renter => {
+    const processedRenters = renters.map(renter => {
         let cumulativePayable = 0;
         let currentDate = startOfMonth(initiationDate);
-
-        while(isBefore(currentDate, selectedDate) || isSameMonth(currentDate, selectedDate)) {
+        while (isBefore(currentDate, selectedDate) || isSameMonth(currentDate, selectedDate)) {
             const referenceDate = lastDayOfMonth(currentDate);
-            
             const roomId = findRoomForRenter(renter, referenceDate);
             const room = rooms.find(r => r.id === roomId);
             const expected = room ? getEffectiveValue(room.rentHistory, referenceDate) : 0;
-            
-            const paid = rentPayments
-                .filter(p => p.renterId === renter.id && isSameMonth(new Date(p.date), currentDate))
-                .reduce((sum, p) => sum + p.amount, 0);
-            
+            const paid = rentPayments.filter(p => p.renterId === renter.id && isSameMonth(new Date(p.date), currentDate)).reduce((sum, p) => sum + p.amount, 0);
             cumulativePayable += (expected - paid);
             currentDate = addMonths(currentDate, 1);
         }
         return { ...renter, cumulativePayable: cumulativePayable > 0 ? cumulativePayable : 0 };
     });
-  }, [renters, rentPayments, rooms, initiationDate, selectedDate]);
+
+    return { ...data, familyMembers: processedFamilyMembers, renters: processedRenters };
+  }, [data, selectedDate]);
 
 
-  const value = {
-    familyMembers: processedFamilyMembers, setFamilyMembers,
-    payouts, setPayouts,
-    utilityBills, setUtilityBills,
-    otherExpenses, setOtherExpenses,
-    rooms, setRooms,
-    renters: processedRenters, setRenters,
-    rentPayments, setRentPayments,
-    initiationDate, setInitiationDate
+  const value: DataContextType = {
+    ...processedData,
+    isLoading,
+    isSyncing,
+    syncData,
+
+    // --- Actions ---
+    addRenter: (newRenter) => performApiAction(() => api.addRenter({ id: `t${Date.now()}`, status: 'active', cumulativePayable: 0, ...newRenter }), "Renter added successfully."),
+    updateRenter: (renter) => performApiAction(() => api.updateRenter(renter), "Renter updated successfully."),
+    archiveRenter: (renter) => performApiAction(() => api.archiveRenter(renter), "Renter archived successfully."),
+
+    addRoom: (newRoom) => performApiAction(() => api.addRoom({ id: `r${Date.now()}`, ...newRoom }), "Room added successfully."),
+    updateRoom: (room) => performApiAction(() => api.updateRoom(room), "Room updated successfully."),
+    deleteRoom: (id) => performApiAction(() => api.deleteRoom(id), "Room deleted successfully."),
+
+    addRentPayment: (newPayment) => performApiAction(() => api.addRentPayment({ id: `rp${Date.now()}`, ...newPayment }), "Rent payment added successfully."),
+    updateRentPayment: (payment) => performApiAction(() => api.updateRentPayment(payment), "Rent payment updated successfully."),
+    deleteRentPayment: (id) => performApiAction(() => api.deleteRentPayment(id), "Rent payment deleted successfully."),
+
+    addFamilyMember: (newMember) => performApiAction(() => api.addFamilyMember({ id: `fm${Date.now()}`, cumulativePayable: 0, ...newMember }), "Family member added successfully."),
+    updateFamilyMember: (member) => performApiAction(() => api.updateFamilyMember(member), "Family member updated successfully."),
+    deleteFamilyMember: (id) => performApiAction(() => api.deleteFamilyMember(id), "Family member deleted successfully."),
+
+    addPayout: (newPayout) => performApiAction(() => api.addPayout({ id: `p${Date.now()}`, ...newPayout }), "Payout added successfully."),
+    updatePayout: (payout) => performApiAction(() => api.updatePayout(payout), "Payout updated successfully."),
+    deletePayout: (id) => performApiAction(() => api.deletePayout(id), "Payout deleted successfully."),
+
+    addUtilityBill: (newBill) => performApiAction(() => api.addUtilityBill({ id: `b${Date.now()}`, ...newBill }), "Utility bill added successfully."),
+    updateUtilityBill: (bill) => performApiAction(() => api.updateUtilityBill(bill), "Utility bill updated successfully."),
+    deleteUtilityBill: (id) => performApiAction(() => api.deleteUtilityBill(id), "Utility bill deleted successfully."),
+
+    addExpense: (newExpense) => performApiAction(() => api.addExpense({ id: `e${Date.now()}`, ...newExpense }), "Expense added successfully."),
+    updateExpense: (expense) => performApiAction(() => api.updateExpense(expense), "Expense updated successfully."),
+    deleteExpense: (id) => performApiAction(() => api.deleteExpense(id), "Expense deleted successfully."),
+    
+    updateInitiationDate: (date: Date) => performApiAction(() => api.updateInitiationDate(date.toISOString()), "Initiation date updated."),
+    clearAllData: () => performApiAction(api.clearAllData, "All application data has been reset."),
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

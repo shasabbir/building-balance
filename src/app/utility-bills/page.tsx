@@ -57,12 +57,13 @@ import { isSameMonth, lastDayOfMonth } from "date-fns"
 
 
 export default function UtilityBillsPage() {
-  const { utilityBills, setUtilityBills } = useData()
+  const { utilityBills, addUtilityBill, updateUtilityBill, deleteUtilityBill } = useData()
   const { selectedDate } = useDate()
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [editingBill, setEditingBill] = React.useState<UtilityBill | null>(null)
   const [billToDelete, setBillToDelete] = React.useState<UtilityBill | null>(null)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   // Form state
   const [billType, setBillType] = React.useState<UtilityBill['type'] | "">("")
@@ -83,36 +84,51 @@ export default function UtilityBillsPage() {
     setIsDialogOpen(true)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!billType || !amount) return
 
-    if (editingBill) {
-      const billData = {
-        type: billType as UtilityBill['type'],
-        amount: parseFloat(amount),
-        notes,
-      }
-      setUtilityBills(bills => bills.map(b => b.id === editingBill.id ? { ...b, ...billData } : b))
-    } else {
-      const now = new Date()
-      const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
-      const billData = {
-        date: transactionDate.toISOString(),
-        type: billType as UtilityBill['type'],
-        amount: parseFloat(amount),
-        notes,
-      }
-      setUtilityBills(prev => [{ id: `b${Date.now()}`, ...billData }, ...prev])
+    setIsSubmitting(true)
+    try {
+        if (editingBill) {
+            const billData = {
+                ...editingBill,
+                type: billType as UtilityBill['type'],
+                amount: parseFloat(amount),
+                notes,
+            }
+            await updateUtilityBill(billData)
+        } else {
+            const now = new Date()
+            const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
+            const billData = {
+                date: transactionDate.toISOString(),
+                type: billType as UtilityBill['type'],
+                amount: parseFloat(amount),
+                notes,
+            }
+            await addUtilityBill(billData)
+        }
+        
+        setIsDialogOpen(false)
+        setEditingBill(null)
+    } catch(error) {
+      // toast handled in context
+    } finally {
+      setIsSubmitting(false)
     }
-    
-    setIsDialogOpen(false)
-    setEditingBill(null)
   }
   
-  const handleDelete = (bill: UtilityBill) => {
-      setUtilityBills(bills => bills.filter(b => b.id !== bill.id))
-      setBillToDelete(null)
+  const handleDelete = async (bill: UtilityBill) => {
+      setIsSubmitting(true)
+      try {
+          await deleteUtilityBill(bill.id)
+          setBillToDelete(null)
+      } catch(error) {
+        // toast handled in context
+      } finally {
+          setIsSubmitting(false)
+      }
   }
 
   const monthlyBills = React.useMemo(() => {
@@ -232,7 +248,7 @@ export default function UtilityBillsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit">Save Payment</Button>
+              <Button type="submit" loading={isSubmitting}>Save Payment</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -249,8 +265,8 @@ export default function UtilityBillsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => billToDelete && handleDelete(billToDelete)}>
-              Continue
+            <AlertDialogAction onClick={() => billToDelete && handleDelete(billToDelete)} disabled={isSubmitting}>
+              {isSubmitting ? 'Deleting...' : 'Continue'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

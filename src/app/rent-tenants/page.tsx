@@ -60,9 +60,11 @@ import { getEffectiveValue, findRoomForRenter, findOccupantForRoom } from "@/lib
 
 export default function RentTenantsPage() {
   const { toast } = useToast()
-  const { renters, setRenters, rentPayments, setRentPayments, rooms, setRooms } = useData()
+  const { renters, rentPayments, rooms, addRenter, updateRenter, archiveRenter, addRoom, updateRoom, deleteRoom, addRentPayment, updateRentPayment, deleteRentPayment } = useData()
   const { selectedDate } = useDate()
   
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+
   // Dialog states
   const [isRenterDialogOpen, setIsRenterDialogOpen] = React.useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false)
@@ -111,75 +113,70 @@ export default function RentTenantsPage() {
     setIsRenterDialogOpen(true)
   }
 
-  const handleRenterSubmit = (e: React.FormEvent) => {
+  const handleRenterSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!renterName) return
 
-    const today = new Date().toISOString()
-    const newRoomId = renterRoomId === '_NONE_' ? null : renterRoomId;
+    setIsSubmitting(true)
+    try {
+      const today = new Date().toISOString()
+      const newRoomId = renterRoomId === '_NONE_' ? null : renterRoomId;
 
-    // Check if the selected room is already occupied by another active renter
-    if (newRoomId) {
-        const occupant = findOccupantForRoom(newRoomId, new Date(), renters, true);
-        if (occupant && occupant.id !== editingRenter?.id) {
-            toast({
-                variant: "destructive",
-                title: "Room Occupied",
-                description: `Room ${getRoomNumber(newRoomId)} is already occupied by ${occupant.name}. Please assign them to a different room first.`,
-            });
-            return;
-        }
+      if (newRoomId) {
+          const occupant = findOccupantForRoom(newRoomId, new Date(), renters, true);
+          if (occupant && occupant.id !== editingRenter?.id) {
+              toast({
+                  variant: "destructive",
+                  title: "Room Occupied",
+                  description: `Room ${getRoomNumber(newRoomId)} is already occupied by ${occupant.name}. Please assign them to a different room first.`,
+              });
+              return;
+          }
+      }
+
+      if (editingRenter) {
+          const occupancyHistory = editingRenter.occupancyHistory || [];
+          const lastEntry = occupancyHistory[occupancyHistory.length - 1];
+          let updatedHistory = [...occupancyHistory];
+          if (!lastEntry || lastEntry.roomId !== newRoomId) {
+              updatedHistory.push({ roomId: newRoomId, effectiveDate: today });
+          }
+          await updateRenter({
+              ...editingRenter,
+              name: renterName,
+              occupancyHistory: updatedHistory,
+              status: 'active'
+          });
+      } else {
+          await addRenter({
+              name: renterName,
+              occupancyHistory: [{ roomId: newRoomId, effectiveDate: today }],
+          });
+      }
+      setIsRenterDialogOpen(false);
+    } catch (error) {
+      // Toast handled in context
+    } finally {
+      setIsSubmitting(false);
     }
-
-    if (editingRenter) {
-        setRenters(renters => renters.map(r => {
-            if (r.id === editingRenter.id) {
-                const occupancyHistory = r.occupancyHistory || [];
-                const lastEntry = occupancyHistory[occupancyHistory.length - 1];
-
-                let updatedHistory = [...occupancyHistory];
-                if (!lastEntry || lastEntry.roomId !== newRoomId) {
-                    updatedHistory.push({ roomId: newRoomId, effectiveDate: today });
-                }
-
-                return {
-                    ...r,
-                    name: renterName,
-                    occupancyHistory: updatedHistory,
-                    status: 'active' // Reactivate if they were archived
-                };
-            }
-            return r;
-        }));
-    } else {
-        const newRenter: Renter = {
-            id: `t${Date.now()}`,
-            name: renterName,
-            status: 'active',
-            cumulativePayable: 0,
-            occupancyHistory: [{ roomId: newRoomId, effectiveDate: today }],
-        };
-        setRenters(prev => [newRenter, ...prev]);
-    }
-    setIsRenterDialogOpen(false);
   }
 
-  const handleArchiveRenter = () => {
+  const handleArchiveRenter = async () => {
     if (!itemToArchive) return;
-    
-    const archiveEffectiveDate = lastDayOfMonth(subMonths(new Date(), 1));
-
-    setRenters(renters => renters.map(r => {
-        if (r.id === itemToArchive.id) {
-            return {
-                ...r,
-                status: 'archived',
-                occupancyHistory: [...r.occupancyHistory, { roomId: null, effectiveDate: archiveEffectiveDate.toISOString() }]
-            }
-        }
-        return r;
-    }));
-    setItemToArchive(null);
+    setIsSubmitting(true)
+    try {
+      const archiveEffectiveDate = lastDayOfMonth(subMonths(new Date(), 1));
+      await archiveRenter({
+          ...itemToArchive,
+          status: 'archived',
+          occupancyHistory: [...itemToArchive.occupancyHistory, { roomId: null, effectiveDate: archiveEffectiveDate.toISOString() }]
+      });
+      setItemToArchive(null);
+    } catch (error) {
+       // Toast handled in context
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
 
@@ -196,38 +193,46 @@ export default function RentTenantsPage() {
     setIsPaymentDialogOpen(true)
   }
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedTenantId || !paymentAmount) return
     
     const renter = renters.find(r => r.id === selectedTenantId)
     if (!renter) return
-
-    if (editingPayment) {
-        const paymentDate = new Date(editingPayment.date)
-        const roomNumber = getRoomNumber(findRoomForRenter(renter, paymentDate))
-        const paymentData = {
+    
+    setIsSubmitting(true)
+    try {
+      if (editingPayment) {
+          const paymentDate = new Date(editingPayment.date)
+          const roomNumber = getRoomNumber(findRoomForRenter(renter, paymentDate))
+          const paymentData = {
+              ...editingPayment,
+              renterId: selectedTenantId,
+              renterName: renter.name,
+              roomNumber: roomNumber,
+              amount: parseFloat(paymentAmount),
+          }
+          await updateRentPayment(paymentData)
+      } else {
+          const now = new Date()
+          const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
+          const roomNumber = getRoomNumber(findRoomForRenter(renter, transactionDate))
+          const paymentData = {
             renterId: selectedTenantId,
             renterName: renter.name,
             roomNumber: roomNumber,
             amount: parseFloat(paymentAmount),
-        }
-        setRentPayments(payments => payments.map(p => p.id === editingPayment.id ? { ...p, ...paymentData } : p))
-    } else {
-        const now = new Date()
-        const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
-        const roomNumber = getRoomNumber(findRoomForRenter(renter, transactionDate))
-        const paymentData = {
-          renterId: selectedTenantId,
-          renterName: renter.name,
-          roomNumber: roomNumber,
-          amount: parseFloat(paymentAmount),
-          date: transactionDate.toISOString(),
-        }
-        setRentPayments(prev => [{ id: `rp${Date.now()}`, ...paymentData }, ...prev])
+            date: transactionDate.toISOString(),
+          }
+          await addRentPayment(paymentData)
+      }
+      setIsPaymentDialogOpen(false)
+      setEditingPayment(null)
+    } catch (error) {
+      // toast handled in context
+    } finally {
+      setIsSubmitting(false)
     }
-    setIsPaymentDialogOpen(false)
-    setEditingPayment(null)
   }
 
   // --- Room Logic ---
@@ -244,66 +249,75 @@ export default function RentTenantsPage() {
     setIsRoomDialogOpen(true)
   }
 
-  const handleRoomSubmit = (e: React.FormEvent) => {
+  const handleRoomSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!roomNumber || !roomRentAmount) return
 
-    if (editingRoom) {
-      const newRentAmount = parseFloat(roomRentAmount)
-      const currentRentAmount = getEffectiveValue(editingRoom.rentHistory, new Date())
-      
-      const history = Array.isArray(editingRoom.rentHistory) ? editingRoom.rentHistory : []
-      let updatedHistory = [...history]
+    setIsSubmitting(true)
+    try {
+      if (editingRoom) {
+        const newRentAmount = parseFloat(roomRentAmount)
+        const currentRentAmount = getEffectiveValue(editingRoom.rentHistory, new Date())
+        
+        let updatedHistory = [...editingRoom.rentHistory];
 
-      if (newRentAmount !== currentRentAmount) {
-          const today = new Date();
-          const existingTodayIndex = updatedHistory.findIndex(
-            (entry) => new Date(entry.effectiveDate).toDateString() === today.toDateString()
-          );
+        if (newRentAmount !== currentRentAmount) {
+            const today = new Date();
+            const existingTodayIndex = updatedHistory.findIndex(
+              (entry) => new Date(entry.effectiveDate).toDateString() === today.toDateString()
+            );
 
-          if (existingTodayIndex !== -1) {
-            updatedHistory[existingTodayIndex].amount = newRentAmount;
-          } else {
-            updatedHistory.push({ amount: newRentAmount, effectiveDate: today.toISOString() });
-          }
-      }
-
-      const roomData = {
-        number: roomNumber,
-        rentHistory: updatedHistory,
-      }
-      setRooms(rooms => rooms.map(r => r.id === editingRoom.id ? { ...r, ...roomData } : r))
-    } else {
-        const roomData = {
-            id: `r${Date.now()}`,
-            number: roomNumber,
-            rentHistory: [{ amount: parseFloat(roomRentAmount), effectiveDate: new Date().toISOString() }],
+            if (existingTodayIndex !== -1) {
+              updatedHistory[existingTodayIndex].amount = newRentAmount;
+            } else {
+              updatedHistory.push({ amount: newRentAmount, effectiveDate: today.toISOString() });
+            }
         }
-        setRooms(prev => [roomData, ...prev])
+        await updateRoom({
+          ...editingRoom,
+          number: roomNumber,
+          rentHistory: updatedHistory,
+        })
+      } else {
+          await addRoom({
+              number: roomNumber,
+              rentHistory: [{ amount: parseFloat(roomRentAmount), effectiveDate: new Date().toISOString() }],
+          })
+      }
+      setIsRoomDialogOpen(false)
+      setEditingRoom(null)
+    } catch (error) {
+      // toast handled in context
+    } finally {
+      setIsSubmitting(false)
     }
-    setIsRoomDialogOpen(false)
-    setEditingRoom(null)
   }
   
   // --- Delete Logic ---
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!itemToDelete) return
-    if (itemToDelete.type === 'payment') {
-      setRentPayments(payments => payments.filter(p => p.id !== itemToDelete.id))
-    } else if (itemToDelete.type === 'room') {
-      const isOccupied = !!findOccupantForRoom(itemToDelete.id, new Date(), renters, true)
-      if (isOccupied) {
-        toast({
-          variant: "destructive",
-          title: "Cannot Delete Room",
-          description: "This room is currently occupied by a renter.",
-        })
-        setItemToDelete(null)
-        return
+    setIsSubmitting(true)
+    try {
+      if (itemToDelete.type === 'payment') {
+        await deleteRentPayment(itemToDelete.id)
+      } else if (itemToDelete.type === 'room') {
+        const isOccupied = !!findOccupantForRoom(itemToDelete.id, new Date(), renters, true)
+        if (isOccupied) {
+          toast({
+            variant: "destructive",
+            title: "Cannot Delete Room",
+            description: "This room is currently occupied by a renter.",
+          })
+          return
+        }
+        await deleteRoom(itemToDelete.id)
       }
-      setRooms(rooms => rooms.filter(r => r.id !== itemToDelete.id))
+    } catch (error) {
+      // toast handled in context
+    } finally {
+      setItemToDelete(null)
+      setIsSubmitting(false)
     }
-    setItemToDelete(null)
   }
 
   const getDeleteItemDescription = () => {
@@ -324,9 +338,8 @@ export default function RentTenantsPage() {
   }, [rooms]);
   
   const rentStatusSummary = React.useMemo(() => {
-    // Create summaries for each room, finding the occupant for the historical reference date.
     const roomSummaries = sortedRooms.map(room => {
-        const occupant = findOccupantForRoom(room.id, referenceDate, renters, true);
+        const occupant = findOccupantForRoom(room.id, referenceDate, renters, false);
         
         if (occupant) {
             const rentDue = getEffectiveValue(room.rentHistory, referenceDate);
@@ -348,53 +361,25 @@ export default function RentTenantsPage() {
 
     const assignedRenterIds = new Set(roomSummaries.map(s => s.occupant?.id).filter(Boolean));
 
-    // Find renters who were active at some point during the selected month but were unassigned.
     const unassignedRentersInMonth = renters
       .filter(r => {
-        // Exclude renters who were already assigned to a room during this month.
-        if (assignedRenterIds.has(r.id)) {
-          return false;
-        }
+        if (assignedRenterIds.has(r.id)) return false;
+        if (!r.occupancyHistory || r.occupancyHistory.length === 0) return false;
 
-        // Renter must have an occupancy history
-        if (!r.occupancyHistory || r.occupancyHistory.length === 0) {
-          return false;
-        }
+        const tenancyStartDate = new Date(r.occupancyHistory[0].effectiveDate);
+        if (isAfter(tenancyStartDate, lastDayOfMonth(selectedDate))) return false;
 
-        // Their tenancy must have started by the end of this month.
-        const tenancyStartDate = new Date(
-          r.occupancyHistory.reduce((earliest, entry) =>
-            new Date(entry.effectiveDate) < new Date(earliest.effectiveDate) ? entry : earliest
-          ).effectiveDate
-        );
-
-        if (isAfter(tenancyStartDate, lastDayOfMonth(selectedDate))) {
-          return false;
-        }
-
-        // If they moved out (archived), that move-out must not have happened before this month started.
-        const moveOutEntry = r.occupancyHistory
-          .filter(entry => entry.roomId === null)
-          .sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime())[0];
-
-        if (moveOutEntry && isBefore(new Date(moveOutEntry.effectiveDate), startOfMonth(selectedDate))) {
-          return false;
-        }
+        const moveOutEntry = r.occupancyHistory.find(entry => entry.roomId === null);
+        if (moveOutEntry && isBefore(new Date(moveOutEntry.effectiveDate), startOfMonth(selectedDate))) return false;
         
-        // A renter should not be in this list if they were never assigned a room during this month.
         const roomForRenterThisMonth = findRoomForRenter(r, referenceDate);
-        if (roomForRenterThisMonth) {
-          return false;
-        }
+        if (roomForRenterThisMonth) return false;
 
         return true;
       })
       .map(r => {
-        // Renters in this list are unassigned for the month, so rentDue is 0.
-        // But they might have paid off previous debt.
         const renterPaymentsThisMonth = rentPayments.filter(p => p.renterId === r.id && isSameMonth(new Date(p.date), selectedDate));
         const rentPaidThisMonth = renterPaymentsThisMonth.reduce((acc, p) => acc + p.amount, 0);
-
         return { room: null, occupant: r, rentDue: 0, rentPaidThisMonth: rentPaidThisMonth, payableThisMonth: 0 };
       });
 
@@ -424,39 +409,18 @@ export default function RentTenantsPage() {
   
   const eligibleRentersForPayment = React.useMemo(() => {
     return renters.filter(renter => {
-      // A renter is eligible if they were active at any point during the selected month.
-      // This means their tenancy started before the end of the month,
-      // and if they have a move-out date, it's not before the start of the month.
-      
-      if (!renter.occupancyHistory || renter.occupancyHistory.length === 0) {
-        return false;
-      }
-      
-      const tenancyStartDate = new Date(
-        renter.occupancyHistory.reduce((earliest, entry) =>
-          new Date(entry.effectiveDate) < new Date(earliest.effectiveDate) ? entry : earliest
-        ).effectiveDate
-      );
-      
-      if (isAfter(tenancyStartDate, lastDayOfMonth(selectedDate))) {
-        return false;
-      }
-      
-      const moveOutEntry = renter.occupancyHistory
-        .filter(entry => entry.roomId === null)
-        .sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime())[0];
-        
-      if (moveOutEntry && isBefore(new Date(moveOutEntry.effectiveDate), startOfMonth(selectedDate))) {
-        return false;
-      }
-      
+      if (!renter.occupancyHistory || renter.occupancyHistory.length === 0) return false;
+      const tenancyStartDate = new Date(renter.occupancyHistory[0].effectiveDate);
+      if (isAfter(tenancyStartDate, lastDayOfMonth(selectedDate))) return false;
+      const moveOutEntry = renter.occupancyHistory.find(entry => entry.roomId === null);
+      if (moveOutEntry && isBefore(new Date(moveOutEntry.effectiveDate), startOfMonth(selectedDate))) return false;
       return true;
     });
   }, [renters, selectedDate]);
 
   const totalApplicableRent = React.useMemo(() => {
     return sortedRooms.reduce((sum, room) => sum + getEffectiveValue(room.rentHistory, new Date()), 0)
-  }, [sortedRooms])
+  }, [sortedRooms]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -749,7 +713,7 @@ export default function RentTenantsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Save Renter</Button>
+                <Button type="submit" loading={isSubmitting}>Save Renter</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -791,7 +755,7 @@ export default function RentTenantsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Save Payment</Button>
+                <Button type="submit" loading={isSubmitting}>Save Payment</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -818,7 +782,7 @@ export default function RentTenantsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Save Room</Button>
+                <Button type="submit" loading={isSubmitting}>Save Room</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -835,8 +799,8 @@ export default function RentTenantsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleArchiveRenter}>
-              Continue
+            <AlertDialogAction onClick={handleArchiveRenter} disabled={isSubmitting}>
+              {isSubmitting ? 'Archiving...' : 'Continue'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -853,8 +817,8 @@ export default function RentTenantsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>
-              Continue
+            <AlertDialogAction onClick={handleDelete} disabled={isSubmitting}>
+              {isSubmitting ? 'Deleting...' : 'Continue'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

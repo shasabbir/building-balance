@@ -59,7 +59,7 @@ import { useToast } from "@/hooks/use-toast"
 
 
 export default function FamilyPaymentsPage() {
-  const { payouts, setPayouts, familyMembers, setFamilyMembers } = useData()
+  const { payouts, familyMembers, addPayout, updatePayout, deletePayout, addFamilyMember, updateFamilyMember, deleteFamilyMember } = useData()
   const { selectedDate } = useDate()
   const { toast } = useToast()
 
@@ -70,6 +70,7 @@ export default function FamilyPaymentsPage() {
   const [editingMember, setEditingMember] = React.useState<FamilyMember | null>(null)
   
   const [itemToDelete, setItemToDelete] = React.useState<{type: 'payout' | 'member', id: string} | null>(null)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   // Payout Form State
   const [selectedMemberId, setSelectedMemberId] = React.useState("")
@@ -95,34 +96,41 @@ export default function FamilyPaymentsPage() {
       setIsPayoutDialogOpen(true)
   }
 
-  const handlePayoutSubmit = (e: React.FormEvent) => {
+  const handlePayoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedMemberId || !payoutAmount) return
 
     const member = familyMembers.find(m => m.id === selectedMemberId)
     if (!member) return
 
-    if (editingPayout) {
-        const payoutData = {
-          familyMemberId: selectedMemberId,
-          familyMemberName: member.name,
-          amount: parseFloat(payoutAmount),
-        }
-        setPayouts(payouts => payouts.map(p => p.id === editingPayout.id ? { ...p, ...payoutData } : p))
-    } else {
-        const now = new Date()
-        const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
-        const payoutData = {
-          familyMemberId: selectedMemberId,
-          familyMemberName: member.name,
-          amount: parseFloat(payoutAmount),
-          date: transactionDate.toISOString(),
-        }
-        setPayouts(prev => [{ id: `p${Date.now()}`, ...payoutData }, ...prev])
+    setIsSubmitting(true)
+    try {
+      if (editingPayout) {
+          const payoutData = {
+            ...editingPayout,
+            familyMemberId: selectedMemberId,
+            familyMemberName: member.name,
+            amount: parseFloat(payoutAmount),
+          }
+          await updatePayout(payoutData)
+      } else {
+          const now = new Date()
+          const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
+          const payoutData = {
+            familyMemberId: selectedMemberId,
+            familyMemberName: member.name,
+            amount: parseFloat(payoutAmount),
+            date: transactionDate.toISOString(),
+          }
+          await addPayout(payoutData)
+      }
+      setIsPayoutDialogOpen(false)
+      setEditingPayout(null)
+    } catch(error) {
+        // toast is handled in context
+    } finally {
+        setIsSubmitting(false)
     }
-
-    setIsPayoutDialogOpen(false)
-    setEditingPayout(null)
   }
 
   const openMemberDialog = (member: FamilyMember | null) => {
@@ -138,68 +146,81 @@ export default function FamilyPaymentsPage() {
     setIsMemberDialogOpen(true)
   }
 
-  const handleMemberSubmit = (e: React.FormEvent) => {
+  const handleMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!memberName || !memberExpected) return
 
-    if (editingMember) {
-      const newExpectedAmount = parseFloat(memberExpected)
-      const currentExpectedAmount = getEffectiveValue(editingMember.expectedHistory, new Date())
-      
-      const history = Array.isArray(editingMember.expectedHistory) ? editingMember.expectedHistory : []
-      let updatedHistory = [...history]
+    setIsSubmitting(true)
+    try {
+      if (editingMember) {
+        const newExpectedAmount = parseFloat(memberExpected)
+        const currentExpectedAmount = getEffectiveValue(editingMember.expectedHistory, new Date())
+        
+        const history = Array.isArray(editingMember.expectedHistory) ? editingMember.expectedHistory : []
+        let updatedHistory = [...history]
 
-      if (newExpectedAmount !== currentExpectedAmount) {
-          const today = new Date();
-          const existingTodayIndex = updatedHistory.findIndex(
-            (entry) => new Date(entry.effectiveDate).toDateString() === today.toDateString()
-          );
+        if (newExpectedAmount !== currentExpectedAmount) {
+            const today = new Date();
+            const existingTodayIndex = updatedHistory.findIndex(
+              (entry) => new Date(entry.effectiveDate).toDateString() === today.toDateString()
+            );
 
-          if (existingTodayIndex !== -1) {
-            updatedHistory[existingTodayIndex].amount = newExpectedAmount;
-          } else {
-            updatedHistory.push({ amount: newExpectedAmount, effectiveDate: today.toISOString() });
-          }
+            if (existingTodayIndex !== -1) {
+              updatedHistory[existingTodayIndex].amount = newExpectedAmount;
+            } else {
+              updatedHistory.push({ amount: newExpectedAmount, effectiveDate: today.toISOString() });
+            }
+        }
+
+        const memberData = {
+          ...editingMember,
+          name: memberName,
+          expectedHistory: updatedHistory,
+        }
+        await updateFamilyMember(memberData)
+      } else {
+        const newMember = {
+          name: memberName,
+          expectedHistory: [{ amount: parseFloat(memberExpected), effectiveDate: new Date().toISOString() }],
+        }
+        await addFamilyMember(newMember)
       }
 
-      const memberData = {
-        name: memberName,
-        expectedHistory: updatedHistory,
-      }
-      setFamilyMembers(members => members.map(m => m.id === editingMember.id ? { ...m, ...memberData } : m))
-    } else {
-      const newMember = {
-        id: `fm${Date.now()}`,
-        name: memberName,
-        expectedHistory: [{ amount: parseFloat(memberExpected), effectiveDate: new Date().toISOString() }],
-        cumulativePayable: 0
-      }
-      setFamilyMembers(prev => [newMember, ...prev])
+      setIsMemberDialogOpen(false)
+      setEditingMember(null)
+    } catch(error) {
+      // toast is handled in context
+    } finally {
+      setIsSubmitting(false)
     }
-
-    setIsMemberDialogOpen(false)
-    setEditingMember(null)
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
       if (!itemToDelete) return
       
-      if (itemToDelete.type === 'payout') {
-        setPayouts(payouts => payouts.filter(p => p.id !== itemToDelete.id))
-      } else if (itemToDelete.type === 'member') {
-        const hasPayouts = payouts.some(p => p.familyMemberId === itemToDelete.id)
-        if (hasPayouts) {
-          toast({
-            variant: "destructive",
-            title: "Cannot Delete Member",
-            description: "This family member has existing payout records.",
-          })
-          setItemToDelete(null)
-          return
+      setIsSubmitting(true)
+      try {
+        if (itemToDelete.type === 'payout') {
+          await deletePayout(itemToDelete.id)
+        } else if (itemToDelete.type === 'member') {
+          const hasPayouts = payouts.some(p => p.familyMemberId === itemToDelete.id)
+          if (hasPayouts) {
+            toast({
+              variant: "destructive",
+              title: "Cannot Delete Member",
+              description: "This family member has existing payout records.",
+            })
+            setItemToDelete(null)
+            return
+          }
+          await deleteFamilyMember(itemToDelete.id)
         }
-        setFamilyMembers(members => members.filter(m => m.id !== itemToDelete.id))
+      } catch (error) {
+        // toast is handled in context
+      } finally {
+        setItemToDelete(null)
+        setIsSubmitting(false)
       }
-      setItemToDelete(null)
   }
 
   const getDeleteItemDescription = () => {
@@ -451,7 +472,7 @@ export default function FamilyPaymentsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Save Payout</Button>
+                <Button type="submit" loading={isSubmitting}>Save Payout</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -482,7 +503,7 @@ export default function FamilyPaymentsPage() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit">Save Member</Button>
+                  <Button type="submit" loading={isSubmitting}>Save Member</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -499,8 +520,8 @@ export default function FamilyPaymentsPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete}>
-                    Continue
+                    <AlertDialogAction onClick={handleDelete} disabled={isSubmitting}>
+                    {isSubmitting ? 'Deleting...' : 'Continue'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

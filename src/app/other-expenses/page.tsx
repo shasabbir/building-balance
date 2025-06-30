@@ -57,12 +57,13 @@ import { isSameMonth, lastDayOfMonth } from "date-fns"
 
 
 export default function OtherExpensesPage() {
-  const { otherExpenses, setOtherExpenses } = useData()
+  const { otherExpenses, addExpense, updateExpense, deleteExpense } = useData()
   const { selectedDate } = useDate()
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [editingExpense, setEditingExpense] = React.useState<Expense | null>(null)
   const [expenseToDelete, setExpenseToDelete] = React.useState<Expense | null>(null)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
   
   // Form state
   const [category, setCategory] = React.useState<Expense['category'] | "">("")
@@ -83,36 +84,51 @@ export default function OtherExpensesPage() {
     setIsDialogOpen(true)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!category || !amount || !details) return
-
-    if (editingExpense) {
-      const expenseData = {
-        category: category as Expense['category'],
-        amount: parseFloat(amount),
-        details,
-      }
-      setOtherExpenses(expenses => expenses.map(e => e.id === editingExpense.id ? { ...e, ...expenseData } : e))
-    } else {
-      const now = new Date()
-      const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
-      const expenseData = {
-        date: transactionDate.toISOString(),
-        category: category as Expense['category'],
-        amount: parseFloat(amount),
-        details,
-      }
-      setOtherExpenses(prev => [{ id: `e${Date.now()}`, ...expenseData }, ...prev])
-    }
     
-    setIsDialogOpen(false)
-    setEditingExpense(null)
+    setIsSubmitting(true)
+    try {
+        if (editingExpense) {
+            const expenseData = {
+                ...editingExpense,
+                category: category as Expense['category'],
+                amount: parseFloat(amount),
+                details,
+            }
+            await updateExpense(expenseData)
+        } else {
+            const now = new Date()
+            const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
+            const expenseData = {
+                date: transactionDate.toISOString(),
+                category: category as Expense['category'],
+                amount: parseFloat(amount),
+                details,
+            }
+            await addExpense(expenseData)
+        }
+        
+        setIsDialogOpen(false)
+        setEditingExpense(null)
+    } catch (error) {
+        // toast handled in context
+    } finally {
+        setIsSubmitting(false)
+    }
   }
   
-  const handleDelete = (expense: Expense) => {
-    setOtherExpenses(expenses => expenses.filter(e => e.id !== expense.id))
-    setExpenseToDelete(null)
+  const handleDelete = async (expense: Expense) => {
+    setIsSubmitting(true)
+    try {
+        await deleteExpense(expense.id)
+        setExpenseToDelete(null)
+    } catch(error) {
+        // toast handled in context
+    } finally {
+        setIsSubmitting(false)
+    }
   }
 
   const monthlyExpenses = React.useMemo(() => {
@@ -233,7 +249,7 @@ export default function OtherExpensesPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Save Expense</Button>
+                <Button type="submit" loading={isSubmitting}>Save Expense</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -250,8 +266,8 @@ export default function OtherExpensesPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => expenseToDelete && handleDelete(expenseToDelete)}>
-                    Continue
+                    <AlertDialogAction onClick={() => expenseToDelete && handleDelete(expenseToDelete)} disabled={isSubmitting}>
+                      {isSubmitting ? 'Deleting...' : 'Continue'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

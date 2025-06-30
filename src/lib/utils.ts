@@ -35,8 +35,11 @@ export function findRoomForRenter(renter: Renter, targetDate: Date): string | nu
     return effectiveOccupancy ? effectiveOccupancy.roomId : null;
 }
 
-export function findOccupantForRoom(roomId: string, targetDate: Date, renters: Renter[]): Renter | undefined {
+export function findOccupantForRoom(roomId: string, targetDate: Date, renters: Renter[], includeActiveOnly: boolean = false): Renter | undefined {
   return renters.find(renter => {
+    if (includeActiveOnly && renter.status !== 'active') {
+      return false;
+    }
     const currentRoomId = findRoomForRenter(renter, targetDate);
     return currentRoomId === roomId;
   });
