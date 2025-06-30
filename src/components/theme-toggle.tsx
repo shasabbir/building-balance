@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -9,6 +10,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 export function ThemeToggle() {
   const { setTheme, theme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return null
+  }
 
   return (
     <RadioGroup
