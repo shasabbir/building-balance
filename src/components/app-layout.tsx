@@ -9,7 +9,7 @@ import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarMenu, S
 import { Button } from "@/components/ui/button"
 import { BuildingIcon } from "./icons"
 import { useDate } from "@/contexts/date-context"
-import { format, subMonths, addMonths, startOfMonth, isBefore, isSameMonth } from "date-fns"
+import { format, subMonths, addMonths, startOfMonth, isBefore, isSameMonth, isAfter } from "date-fns"
 import { useData } from "@/contexts/data-context"
 
 const menuItems = [
@@ -35,6 +35,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
   
   const isPrevDisabled = isBefore(startOfMonth(selectedDate), startOfMonth(initiationDate)) || isSameMonth(startOfMonth(selectedDate), startOfMonth(initiationDate));
+  
+  const isNextDisabled = React.useMemo(() => {
+    const oneMonthFromNow = addMonths(startOfMonth(new Date()), 1);
+    return isSameMonth(selectedDate, oneMonthFromNow) || isAfter(startOfMonth(selectedDate), oneMonthFromNow);
+  }, [selectedDate]);
 
   return (
     <SidebarProvider>
@@ -77,7 +82,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <span className="font-semibold text-lg w-32 text-center">
                 {format(selectedDate, "MMMM yyyy")}
               </span>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleNextMonth}>
+              <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleNextMonth} disabled={isNextDisabled}>
                 <ChevronRight className="h-4 w-4" />
                 <span className="sr-only">Next Month</span>
               </Button>
