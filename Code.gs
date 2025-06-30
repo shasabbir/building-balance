@@ -1,257 +1,189 @@
-// In Apps Script, go to Project Settings > Script Properties and add a property:
-// Key: PIN_CODE, Value: your-6-digit-pin
-const PIN_KEY = 'PIN_CODE';
-const SCRIPT_PROPS = PropertiesService.getScriptProperties();
+// A simple web app that acts as a JSON API for a key-value store.
+// See the README.md for instructions on how to deploy and use this script.
+const storage = PropertiesService.getScriptProperties();
+// IMPORTANT: Set a script property named 'PIN_CODE' with your secret 6-digit PIN in Project Settings.
 
-// Data keys for script properties
-const KEYS = {
-  FAMILY_MEMBERS: 'familyMembers',
-  PAYOUTS: 'payouts',
-  UTILITY_BILLS: 'utilityBills',
-  OTHER_EXPENSES: 'otherExpenses',
-  ROOMS: 'rooms',
-  RENTERS: 'renters',
-  RENT_PAYMENTS: 'rentPayments',
-  INITIATION_DATE: 'initiationDate'
-};
+// --- Request Handlers ---
 
-// --- UTILITY FUNCTIONS ---
+function doPost(e) {
+  try {
+    const payload = JSON.parse(e.postData.contents);
+    
+    // The initial PIN check from the UI is the only action allowed without a valid session PIN.
+    if (payload.action !== 'checkPin') {
+      if (!isPinValid(payload.pin)) {
+        return errorResponse('Authentication failed.');
+      }
+    }
 
-function jsonResponse(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
+    const result = handlePost(payload);
+    return createJsonResponse(result);
+  } catch (err) {
+    return createJsonResponse(errorResponse(err.message));
+  }
 }
 
-function checkPin(pin) {
-  const storedPin = SCRIPT_PROPS.getProperty(PIN_KEY);
+function doGet(e) {
+  try {
+    if (!isPinValid(e.parameter.pin)) {
+      return createJsonResponse(errorResponse('Authentication failed.'));
+    }
+    const result = handleGet(e.parameter);
+    return createJsonResponse(result);
+  } catch (err) {
+    return createJsonResponse(errorResponse(err.message));
+  }
+}
+
+// --- Action Routing ---
+
+function handlePost(payload) {
+  if (!payload || !payload.action) {
+    return errorResponse('Invalid payload. "action" is missing.');
+  }
+
+  const { action, data } = payload;
+  
+  switch (action) {
+    case 'checkPin':
+      if (!data || !data.pin) return errorResponse('PIN is required.');
+      return isPinValid(data.pin) 
+        ? successResponse({ authenticated: true }) 
+        : errorResponse('Authentication failed.');
+
+    case 'clearAllData': {
+      const pin = storage.getProperty('PIN_CODE');
+      storage.deleteAllProperties();
+      if (pin) storage.setProperty('PIN_CODE', pin); // Restore PIN
+      const initialData = getInitialData();
+      storage.setProperties(serializeData(initialData), true);
+      return successResponse(getDecodedData());
+    }
+
+    case 'updateInitiationDate':
+      storage.setProperty('initiationDate', data.date);
+      return successResponse(getDecodedData());
+
+    case 'addRenter': case 'addRoom': case 'addRentPayment': case 'addFamilyMember':
+    case 'addPayout': case 'addUtilityBill': case 'addExpense':
+      return addGeneric(action, data);
+
+    case 'updateRenter': case 'updateRoom': case 'updateRentPayment': case 'updateFamilyMember':
+    case 'updatePayout': case 'updateUtilityBill': case 'updateExpense': case 'archiveRenter':
+      return updateGeneric(action, data);
+
+    case 'deleteRoom': case 'deleteRentPayment': case 'deleteFamilyMember':
+    case 'deletePayout': case 'deleteUtilityBill': case 'deleteExpense':
+      return deleteGeneric(action, data);
+
+    default:
+      return errorResponse('Invalid action specified.');
+  }
+}
+
+function handleGet(params) {
+  if (!params || !params.action) {
+    return errorResponse('Invalid parameters. "action" is missing.');
+  }
+  switch (params.action) {
+    case 'sync':
+      return successResponse(getDecodedData());
+    default:
+      return errorResponse('Invalid action specified.');
+  }
+}
+
+
+// --- Generic CRUD Functions ---
+
+function addGeneric(action, itemData) {
+  const key = action.replace('add', '').charAt(0).toLowerCase() + action.slice(4) + 's';
+  const data = JSON.parse(storage.getProperty(key) || '[]');
+  data.push(itemData);
+  storage.setProperty(key, JSON.stringify(data));
+  return successResponse(getDecodedData());
+}
+
+function updateGeneric(action, itemData) {
+  const actionPrefix = action.startsWith('update') ? 'update' : 'archive';
+  const keyName = action.replace(actionPrefix, '');
+  const key = keyName.charAt(0).toLowerCase() + keyName.slice(1) + 's';
+  
+  const data = JSON.parse(storage.getProperty(key) || '[]');
+  const index = data.findIndex(item => item.id === itemData.id);
+  if (index !== -1) {
+    data[index] = itemData;
+    storage.setProperty(key, JSON.stringify(data));
+  }
+  return successResponse(getDecodedData());
+}
+
+function deleteGeneric(action, itemData) {
+  const key = action.replace('delete', '').charAt(0).toLowerCase() + action.slice(7) + 's';
+  const data = JSON.parse(storage.getProperty(key) || '[]');
+  const filteredData = data.filter(item => item.id !== itemData.id);
+  storage.setProperty(key, JSON.stringify(filteredData));
+  return successResponse(getDecodedData());
+}
+
+// --- Utility Functions ---
+
+function isPinValid(pin) {
+  const storedPin = storage.getProperty('PIN_CODE');
   if (!storedPin) {
-    throw new Error('PIN not configured on the server. Please set PIN_CODE in Script Properties.');
+    Logger.log("CRITICAL: PIN_CODE script property is not set.");
+    return false;
   }
   return pin === storedPin;
 }
 
-function getData(key, defaultValue = []) {
-  const data = SCRIPT_PROPS.getProperty(key);
-  try {
-    return data ? JSON.parse(data) : defaultValue;
-  } catch(e) {
-    // If there's a parsing error, return the default value.
-    return defaultValue;
-  }
+function createJsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
-function setData(key, value) {
-  SCRIPT_PROPS.setProperty(key, JSON.stringify(value));
+function successResponse(data) {
+  return { status: 'success', data: data };
 }
 
-function getAllData() {
-  const initiationDate = SCRIPT_PROPS.getProperty(KEYS.INITIATION_DATE) || new Date('2024-01-01').toISOString();
+function errorResponse(message) {
+  return { status: 'error', message: message };
+}
+
+function getInitialData() {
   return {
-    familyMembers: getData(KEYS.FAMILY_MEMBERS),
-    payouts: getData(KEYS.PAYOUTS),
-    utilityBills: getData(KEYS.UTILITY_BILLS),
-    otherExpenses: getData(KEYS.OTHER_EXPENSES),
-    rooms: getData(KEYS.ROOMS),
-    renters: getData(KEYS.RENTERS),
-    rentPayments: getData(KEYS.RENT_PAYMENTS),
-    initiationDate: initiationDate
+    familyMembers: [], payouts: [], utilityBills: [], otherExpenses: [],
+    rooms: [], renters: [], rentPayments: [],
+    initiationDate: new Date('2024-01-01').toISOString(),
   };
 }
 
-
-// --- ENTRY POINTS ---
-
-function doGet(e) {
-  try {
-    const { action, pin } = e.parameter;
-    
-    if (!checkPin(pin)) {
-      return jsonResponse({ status: 'error', message: 'Authentication failed.' });
-    }
-    
-    if (action === 'sync') {
-      return jsonResponse({ status: 'success', data: getAllData() });
-    }
-    
-    return jsonResponse({ status: 'error', message: `Invalid GET action: ${action}` });
-  } catch (error) {
-    return jsonResponse({ status: 'error', message: error.message, stack: error.stack });
+function getDecodedData() {
+  const keys = storage.getKeys();
+  if (keys.length === 0 || !storage.getProperty('familyMembers')) {
+    const pin = storage.getProperty('PIN_CODE');
+    const initialData = getInitialData();
+    storage.setProperties(serializeData(initialData), true);
+    if (pin) storage.setProperty('PIN_CODE', pin); // Restore PIN
+    return initialData;
   }
+  
+  const data = {};
+  keys.forEach(key => {
+    if (key === 'PIN_CODE') return; // Don't send PIN to client
+    try {
+      data[key] = JSON.parse(storage.getProperty(key));
+    } catch (e) {
+      data[key] = storage.getProperty(key);
+    }
+  });
+  return data;
 }
 
-function doPost(e) {
-  try {
-    const request = JSON.parse(e.postData.contents);
-    const { action, data, pin } = request;
-
-    // The only action that doesn't need a pre-validated PIN is checking the PIN itself.
-    if (action === 'checkPin') {
-        if (checkPin(data.pin)) {
-            return jsonResponse({ status: 'success', data: { authenticated: true } });
-        } else {
-            return jsonResponse({ status: 'error', message: 'Authentication failed.' });
-        }
-    }
-    
-    // All other actions require a valid PIN.
-    if (!checkPin(pin)) {
-       return jsonResponse({ status: 'error', message: 'Authentication failed.' });
-    }
-
-    switch(action) {
-      // --- Renter Actions ---
-      case 'addRenter': {
-        const renters = getData(KEYS.RENTERS);
-        renters.push(data);
-        setData(KEYS.RENTERS, renters);
-        break;
-      }
-      case 'updateRenter':
-      case 'archiveRenter': {
-        let renters = getData(KEYS.RENTERS);
-        renters = renters.map(r => r.id === data.id ? data : r);
-        setData(KEYS.RENTERS, renters);
-        break;
-      }
-
-      // --- Room Actions ---
-      case 'addRoom': {
-        const rooms = getData(KEYS.ROOMS);
-        rooms.push(data);
-        setData(KEYS.ROOMS, rooms);
-        break;
-      }
-      case 'updateRoom': {
-        let rooms = getData(KEYS.ROOMS);
-        rooms = rooms.map(r => r.id === data.id ? data : r);
-        setData(KEYS.ROOMS, rooms);
-        break;
-      }
-      case 'deleteRoom': {
-        let rooms = getData(KEYS.ROOMS);
-        rooms = rooms.filter(r => r.id !== data.id);
-        setData(KEYS.ROOMS, rooms);
-        break;
-      }
-
-      // --- Rent Payment Actions ---
-      case 'addRentPayment': {
-        const payments = getData(KEYS.RENT_PAYMENTS);
-        payments.push(data);
-        setData(KEYS.RENT_PAYMENTS, payments);
-        break;
-      }
-      case 'updateRentPayment': {
-        let payments = getData(KEYS.RENT_PAYMENTS);
-        payments = payments.map(p => p.id === data.id ? data : p);
-        setData(KEYS.RENT_PAYMENTS, payments);
-        break;
-      }
-      case 'deleteRentPayment': {
-        let payments = getData(KEYS.RENT_PAYMENTS);
-        payments = payments.filter(p => p.id !== data.id);
-        setData(KEYS.RENT_PAYMENTS, payments);
-        break;
-      }
-
-      // --- Family Member Actions ---
-      case 'addFamilyMember': {
-        const members = getData(KEYS.FAMILY_MEMBERS);
-        members.push(data);
-        setData(KEYS.FAMILY_MEMBERS, members);
-        break;
-      }
-      case 'updateFamilyMember': {
-        let members = getData(KEYS.FAMILY_MEMBERS);
-        members = members.map(m => m.id === data.id ? data : m);
-        setData(KEYS.FAMILY_MEMBERS, members);
-        break;
-      }
-      case 'deleteFamilyMember': {
-        let members = getData(KEYS.FAMILY_MEMBERS);
-        members = members.filter(m => m.id !== data.id);
-        setData(KEYS.FAMILY_MEMBERS, members);
-        break;
-      }
-
-      // --- Payout Actions ---
-      case 'addPayout': {
-        const payouts = getData(KEYS.PAYOUTS);
-        payouts.push(data);
-        setData(KEYS.PAYOUTS, payouts);
-        break;
-      }
-      case 'updatePayout': {
-        let payouts = getData(KEYS.PAYOUTS);
-        payouts = payouts.map(p => p.id === data.id ? data : p);
-        setData(KEYS.PAYOUTS, payouts);
-        break;
-      }
-      case 'deletePayout': {
-        let payouts = getData(KEYS.PAYOUTS);
-        payouts = payouts.filter(p => p.id !== data.id);
-        setData(KEYS.PAYOUTS, payouts);
-        break;
-      }
-      
-      // --- Utility Bill Actions ---
-      case 'addUtilityBill': {
-        const bills = getData(KEYS.UTILITY_BILLS);
-        bills.push(data);
-        setData(KEYS.UTILITY_BILLS, bills);
-        break;
-      }
-      case 'updateUtilityBill': {
-        let bills = getData(KEYS.UTILITY_BILLS);
-        bills = bills.map(b => b.id === data.id ? data : b);
-        setData(KEYS.UTILITY_BILLS, bills);
-        break;
-      }
-      case 'deleteUtilityBill': {
-        let bills = getData(KEYS.UTILITY_BILLS);
-        bills = bills.filter(b => b.id !== data.id);
-        setData(KEYS.UTILITY_BILLS, bills);
-        break;
-      }
-
-      // --- Other Expense Actions ---
-      case 'addExpense': {
-        const expenses = getData(KEYS.OTHER_EXPENSES);
-        expenses.push(data);
-        setData(KEYS.OTHER_EXPENSES, expenses);
-        break;
-      }
-      case 'updateExpense': {
-        let expenses = getData(KEYS.OTHER_EXPENSES);
-        expenses = expenses.map(e => e.id === data.id ? data : e);
-        setData(KEYS.OTHER_EXPENSES, expenses);
-        break;
-      }
-      case 'deleteExpense': {
-        let expenses = getData(KEYS.OTHER_EXPENSES);
-        expenses = expenses.filter(e => e.id !== data.id);
-        setData(KEYS.OTHER_EXPENSES, expenses);
-        break;
-      }
-
-      // --- Settings Actions ---
-      case 'updateInitiationDate': {
-        SCRIPT_PROPS.setProperty(KEYS.INITIATION_DATE, data.date);
-        break;
-      }
-      case 'clearAllData': {
-        Object.values(KEYS).forEach(key => SCRIPT_PROPS.deleteProperty(key));
-        break;
-      }
-
-      default:
-        throw new Error(`Invalid POST action: ${action}`);
-    }
-
-    // After a successful write operation, return all data so the frontend can re-sync.
-    return jsonResponse({ status: 'success', data: getAllData() });
-
-  } catch (error) {
-    return jsonResponse({ status: 'error', message: error.message, stack: error.stack });
+function serializeData(data) {
+  const serialized = {};
+  for (const key in data) {
+    serialized[key] = JSON.stringify(data[key]);
   }
+  return serialized;
 }
