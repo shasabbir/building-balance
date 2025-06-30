@@ -11,11 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from '@/components/page-header'
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
-import { isSameMonth, subMonths, lastDayOfMonth } from 'date-fns'
+import { isSameMonth, subMonths, lastDayOfMonth, isBefore, startOfMonth, addMonths, format } from 'date-fns'
 import type { Renter, RentPayment, FamilyMember, Payout, UtilityBill, Expense, Room } from "@/lib/types"
 import { getEffectiveValue, findRoomForRenter, findOccupantForRoom } from "@/lib/utils"
 
@@ -73,14 +74,63 @@ const calculateMonthlySummary = (
   };
 };
 
+const calculateAllTimeSummary = (
+  selectedDate: Date,
+  initiationDate: Date,
+  allRentPayments: RentPayment[],
+  allPayouts: Payout[],
+  allBills: UtilityBill[],
+  allExpenses: Expense[]
+) => {
+  let rentCollected = 0;
+  let payoutsPaid = 0;
+  let billsPaid = 0;
+  let expensesPaid = 0;
+
+  let currentDate = startOfMonth(initiationDate);
+
+  while (isBefore(currentDate, selectedDate) || isSameMonth(currentDate, selectedDate)) {
+    rentCollected += allRentPayments
+      .filter(p => isSameMonth(new Date(p.date), currentDate))
+      .reduce((sum, p) => sum + p.amount, 0);
+    payoutsPaid += allPayouts
+      .filter(p => isSameMonth(new Date(p.date), currentDate))
+      .reduce((sum, p) => sum + p.amount, 0);
+    billsPaid += allBills
+      .filter(b => isSameMonth(new Date(b.date), currentDate))
+      .reduce((sum, b) => sum + b.amount, 0);
+    expensesPaid += allExpenses
+      .filter(e => isSameMonth(new Date(e.date), currentDate))
+      .reduce((sum, e) => sum + e.amount, 0);
+    
+    currentDate = addMonths(currentDate, 1);
+  }
+
+  const totalIncome = rentCollected;
+  const totalOutgoing = payoutsPaid + billsPaid + expensesPaid;
+  const balance = totalIncome - totalOutgoing;
+
+  return {
+    rentCollected,
+    payoutsPaid,
+    billsPaid,
+    expensesPaid,
+    totalIncome,
+    totalOutgoing,
+    balance,
+  };
+};
+
 export default function Dashboard() {
   const { selectedDate } = useDate()
-  const { renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms } = useData()
+  const { renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms, initiationDate } = useData()
 
   const previousMonth = subMonths(selectedDate, 1)
 
   const previousMonthSummary = calculateMonthlySummary(previousMonth, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms)
   const currentMonthSummary = calculateMonthlySummary(selectedDate, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms)
+  const allTimeSummary = calculateAllTimeSummary(selectedDate, initiationDate, rentPayments, payouts, utilityBills, otherExpenses)
+
 
   const carryOver = previousMonthSummary.balance
   const finalBalance = carryOver + currentMonthSummary.balance
@@ -97,138 +147,195 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Monthly Summary" />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Carry Over</CardTitle>
-            <Repeat className={`h-4 w-4 ${carryOver >= 0 ? "text-muted-foreground" : "text-red-500"}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${carryOver < 0 && "text-red-600 dark:text-red-400"}`}>৳{carryOver.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">From last month</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rent Collected</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">৳{currentMonthSummary.rent.collected.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Expected: ৳{currentMonthSummary.rent.expected.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Payouts</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">৳{currentMonthSummary.payouts.paid.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Expected: ৳{currentMonthSummary.payouts.expected.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bills & Expenses</CardTitle>
-            <Receipt className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">৳{(currentMonthSummary.bills + currentMonthSummary.expenses).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Bills: ৳{currentMonthSummary.bills.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card className={finalBalance >= 0 ? "border-green-500/50 dark:border-green-500/40" : "border-red-500/50 dark:border-red-500/40"}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Final Balance</CardTitle>
-            <Wallet className={`h-4 w-4 ${finalBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${finalBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
-              ৳{finalBalance.toLocaleString()}
+      <PageHeader title="Dashboard" />
+      
+      <Tabs defaultValue="monthly" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 md:w-auto md:max-w-xs">
+          <TabsTrigger value="monthly">This Month</TabsTrigger>
+          <TabsTrigger value="all-time">All Time</TabsTrigger>
+        </TabsList>
+        <TabsContent value="monthly" className="space-y-4 pt-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Carry Over</CardTitle>
+                  <Repeat className={`h-4 w-4 ${carryOver >= 0 ? "text-muted-foreground" : "text-red-500"}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${carryOver < 0 && "text-red-600 dark:text-red-400"}`}>৳{carryOver.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">From last month</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Rent Collected</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">৳{currentMonthSummary.rent.collected.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">Expected: ৳{currentMonthSummary.rent.expected.toLocaleString()}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Payouts</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">৳{currentMonthSummary.payouts.paid.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">Expected: ৳{currentMonthSummary.payouts.expected.toLocaleString()}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Bills & Expenses</CardTitle>
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">৳{(currentMonthSummary.bills + currentMonthSummary.expenses).toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">Bills: ৳{currentMonthSummary.bills.toLocaleString()}</p>
+                </CardContent>
+              </Card>
+              <Card className={finalBalance >= 0 ? "border-green-500/50 dark:border-green-500/40" : "border-red-500/50 dark:border-red-500/40"}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Final Balance</CardTitle>
+                  <Wallet className={`h-4 w-4 ${finalBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${finalBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                    ৳{finalBalance.toLocaleString()}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Incl. carry over</p>
+                </CardContent>
+              </Card>
             </div>
-            <p className="text-xs text-muted-foreground">Incl. carry over</p>
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentActivities.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="hidden sm:table-cell">Type</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentActivities.map((activity, index) => (
-                    <TableRow key={index}>
-                      <TableCell className="hidden sm:table-cell">
-                        <Badge variant={activity.status === 'pending' ? 'destructive' : 'secondary'} className="capitalize">{activity.type}</Badge>
-                      </TableCell>
-                      <TableCell>{activity.description}</TableCell>
-                      <TableCell className="text-right font-medium">৳{activity.amount.toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center text-muted-foreground p-8">No activity this month.</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Financial Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-6">
-             <div className="flex items-center gap-4">
-               <div className="bg-green-500/10 dark:bg-green-500/20 p-3 rounded-full">
-                <TrendingUp className="h-6 w-6 text-green-500" />
-               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Income</p>
-                <p className="text-lg font-bold">৳{currentMonthSummary.totalIncome.toLocaleString()}</p>
-              </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+              <Card className="lg:col-span-4">
+                <CardHeader>
+                  <CardTitle>Recent Activity</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {recentActivities.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="hidden sm:table-cell">Type</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {recentActivities.map((activity, index) => (
+                          <TableRow key={index}>
+                            <TableCell className="hidden sm:table-cell">
+                              <Badge variant={activity.status === 'pending' ? 'destructive' : 'secondary'} className="capitalize">{activity.type}</Badge>
+                            </TableCell>
+                            <TableCell>{activity.description}</TableCell>
+                            <TableCell className="text-right font-medium">৳{activity.amount.toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="text-center text-muted-foreground p-8">No activity this month.</div>
+                  )}
+                </CardContent>
+              </Card>
+              <Card className="lg:col-span-3">
+                <CardHeader>
+                  <CardTitle>Financial Summary</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-6">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-green-500/10 dark:bg-green-500/20 p-3 rounded-full">
+                      <TrendingUp className="h-6 w-6 text-green-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Income</p>
+                      <p className="text-lg font-bold">৳{currentMonthSummary.totalIncome.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="bg-red-500/10 dark:bg-red-500/20 p-3 rounded-full">
+                      <TrendingDown className="h-6 w-6 text-red-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Outgoing</p>
+                      <p className="text-lg font-bold">৳{currentMonthSummary.totalOutgoing.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                      <div className="bg-yellow-500/10 dark:bg-yellow-500/20 p-3 rounded-full">
+                      <Home className="h-6 w-6 text-yellow-500" />
+                      </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Rent Payable</p>
+                      <p className="text-lg font-bold">৳{currentMonthSummary.rent.payable.toLocaleString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                      <div className="bg-blue-500/10 dark:bg-blue-500/20 p-3 rounded-full">
+                      <Users className="h-6 w-6 text-blue-500" />
+                      </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Family Payouts Payable</p>
+                      <p className="text-lg font-bold">৳{currentMonthSummary.payouts.payable.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="bg-red-500/10 dark:bg-red-500/20 p-3 rounded-full">
-                <TrendingDown className="h-6 w-6 text-red-500" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Outgoing</p>
-                <p className="text-lg font-bold">৳{currentMonthSummary.totalOutgoing.toLocaleString()}</p>
-              </div>
-            </div>
-             <div className="flex items-center gap-4">
-                <div className="bg-yellow-500/10 dark:bg-yellow-500/20 p-3 rounded-full">
-                 <Home className="h-6 w-6 text-yellow-500" />
-                </div>
-               <div>
-                 <p className="text-sm text-muted-foreground">Rent Payable</p>
-                 <p className="text-lg font-bold">৳{currentMonthSummary.rent.payable.toLocaleString()}</p>
-               </div>
-             </div>
-             <div className="flex items-center gap-4">
-                <div className="bg-blue-500/10 dark:bg-blue-500/20 p-3 rounded-full">
-                 <Users className="h-6 w-6 text-blue-500" />
-                </div>
-               <div>
-                 <p className="text-sm text-muted-foreground">Family Payouts Payable</p>
-                 <p className="text-lg font-bold">৳{currentMonthSummary.payouts.payable.toLocaleString()}</p>
-               </div>
-             </div>
-          </CardContent>
-        </Card>
-      </div>
+        </TabsContent>
+        <TabsContent value="all-time" className="space-y-4 pt-4">
+           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Rent Collected</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">৳{allTimeSummary.rentCollected.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">From {format(initiationDate, "MMM yyyy")} until this month</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Payouts Paid</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">৳{allTimeSummary.payoutsPaid.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">All payouts to family members</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Bills & Expenses</CardTitle>
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">৳{(allTimeSummary.billsPaid + allTimeSummary.expensesPaid).toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">Utilities and other expenses</p>
+                </CardContent>
+              </Card>
+              <Card className={allTimeSummary.balance >= 0 ? "border-green-500/50 dark:border-green-500/40" : "border-red-500/50 dark:border-red-500/40"}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Overall Final Balance</CardTitle>
+                  <Wallet className={`h-4 w-4 ${allTimeSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${allTimeSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                    ৳{allTimeSummary.balance.toLocaleString()}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Total income minus total outgoing</p>
+                </CardContent>
+              </Card>
+           </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
+
+    
