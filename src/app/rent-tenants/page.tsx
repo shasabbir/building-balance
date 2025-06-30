@@ -138,6 +138,25 @@ export default function RentTenantsPage() {
 
                 let updatedHistory = [...occupancyHistory];
                 if (!lastEntry || lastEntry.roomId !== newRoomId) {
+                    // Before adding a new occupancy, if the renter is moving to a new room,
+                    // we need to "move them out" of their previous room.
+                    if (newRoomId) {
+                        const previousOccupant = findOccupantForRoom(newRoomId, new Date(), renters)
+                        if (previousOccupant && previousOccupant.id !== editingRenter.id) {
+                            // This room is taken, so we need to archive the previous occupant
+                             setRenters(rs => rs.map(prevR => {
+                                if (prevR.id === previousOccupant.id) {
+                                    return {
+                                        ...prevR,
+                                        status: 'archived',
+                                        occupancyHistory: [...prevR.occupancyHistory, { roomId: null, effectiveDate: new Date().toISOString() }]
+                                    }
+                                }
+                                return prevR
+                            }))
+                        }
+                    }
+
                     updatedHistory.push({ roomId: newRoomId, effectiveDate: today });
                 }
 
@@ -200,9 +219,9 @@ export default function RentTenantsPage() {
     const renter = renters.find(r => r.id === selectedTenantId)
     if (!renter) return
 
-    const roomNumber = getRoomNumber(findRoomForRenter(renter, new Date()))
-
     if (editingPayment) {
+        const paymentDate = new Date(editingPayment.date)
+        const roomNumber = getRoomNumber(findRoomForRenter(renter, paymentDate))
         const paymentData = {
             renterId: selectedTenantId,
             renterName: renter.name,
@@ -213,6 +232,7 @@ export default function RentTenantsPage() {
     } else {
         const now = new Date()
         const transactionDate = isSameMonth(selectedDate, now) ? now : lastDayOfMonth(selectedDate)
+        const roomNumber = getRoomNumber(findRoomForRenter(renter, transactionDate))
         const paymentData = {
           renterId: selectedTenantId,
           renterName: renter.name,
@@ -287,7 +307,7 @@ export default function RentTenantsPage() {
     if (itemToDelete.type === 'payment') {
       setRentPayments(payments => payments.filter(p => p.id !== itemToDelete.id))
     } else if (itemToDelete.type === 'room') {
-      const isOccupied = !!findOccupantForRoom(itemToDelete.id, new Date(), renters)
+      const isOccupied = !!findOccupantForRoom(itemToDelete.id, new Date(), renters, true)
       if (isOccupied) {
         toast({
           variant: "destructive",
@@ -318,10 +338,10 @@ export default function RentTenantsPage() {
   const sortedRooms = React.useMemo(() => {
     return [...rooms].sort((a,b) => parseInt(a.number) - parseInt(b.number));
   }, [rooms]);
-
+  
   const rentStatusSummary = React.useMemo(() => {
-    return sortedRooms.map(room => {
-        const occupant = findOccupantForRoom(room.id, referenceDate, renters);
+    const roomSummaries = sortedRooms.map(room => {
+        const occupant = findOccupantForRoom(room.id, referenceDate, renters, false);
         
         if (occupant) {
             const rentDue = getEffectiveValue(room.rentHistory, referenceDate);
@@ -338,9 +358,16 @@ export default function RentTenantsPage() {
             };
         }
         
-        return { room, occupant: null };
+        return { room, occupant: null, rentDue: 0, rentPaidThisMonth: 0, payableThisMonth: 0 };
     });
-  }, [sortedRooms, renters, rentPayments, rooms, selectedDate, referenceDate]);
+
+    const activeRentersWithoutRooms = renters
+        .filter(r => r.status === 'active' && !findRoomForRenter(r, referenceDate))
+        .map(r => ({ room: null, occupant: r, rentDue: 0, rentPaidThisMonth: 0, payableThisMonth: 0 }));
+
+    return [...roomSummaries, ...activeRentersWithoutRooms];
+  }, [sortedRooms, renters, rentPayments, selectedDate, referenceDate]);
+
 
   const monthlyRentPayments = React.useMemo(() => {
       return rentPayments
@@ -350,7 +377,13 @@ export default function RentTenantsPage() {
   
   const activeRenters = React.useMemo(() => renters.filter(r => r.status === 'active'), [renters]);
   const archivedRenters = React.useMemo(() => renters.filter(r => r.status === 'archived'), [renters]);
-
+  
+  const eligibleRentersForPayment = React.useMemo(() => {
+    return renters.filter(renter => {
+      const room = findRoomForRenter(renter, referenceDate);
+      return !!room;
+    });
+  }, [renters, referenceDate]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -392,8 +425,8 @@ export default function RentTenantsPage() {
             </TableHeader>
             <TableBody>
               {rentStatusSummary.map(({ room, occupant, rentDue, rentPaidThisMonth, payableThisMonth }) => (
-                <TableRow key={room.id}>
-                  <TableCell><Badge variant="secondary">{room.number}</Badge></TableCell>
+                <TableRow key={room?.id || occupant.id}>
+                  <TableCell><Badge variant="secondary">{room ? room.number : "Unassigned"}</Badge></TableCell>
                   <TableCell className="font-medium">{occupant ? occupant.name : <span className="text-muted-foreground">Vacant</span>}</TableCell>
                   {occupant ? (
                     <>
@@ -488,7 +521,7 @@ export default function RentTenantsPage() {
             </TableHeader>
             <TableBody>
               {sortedRooms.map((room) => {
-                const occupant = findOccupantForRoom(room.id, new Date(), renters);
+                const occupant = findOccupantForRoom(room.id, new Date(), renters, true);
                 const applicableRent = getEffectiveValue(room.rentHistory, new Date());
                 return (
                     <TableRow key={room.id}>
@@ -607,7 +640,7 @@ export default function RentTenantsPage() {
                         <SelectContent>
                             <SelectItem value="_NONE_">None (Unassigned)</SelectItem>
                             {rooms.map((room) => {
-                                const occupant = findOccupantForRoom(room.id, new Date(), renters);
+                                const occupant = findOccupantForRoom(room.id, new Date(), renters, true);
                                 const isOccupiedByOther = occupant && occupant.id !== editingRenter?.id;
                                 return (
                                     <SelectItem key={room.id} value={room.id} disabled={isOccupiedByOther}>
@@ -646,9 +679,9 @@ export default function RentTenantsPage() {
                       <SelectValue placeholder="Select a tenant" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeRenters.map((renter) => (
+                      {eligibleRentersForPayment.map((renter) => (
                         <SelectItem key={renter.id} value={renter.id}>
-                          {renter.name} ({getRoomNumber(findRoomForRenter(renter, new Date()))})
+                          {renter.name} ({getRoomNumber(findRoomForRenter(renter, referenceDate))})
                         </SelectItem>
                       ))}
                     </SelectContent>
