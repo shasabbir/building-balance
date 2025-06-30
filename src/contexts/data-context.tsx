@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { familyMembers as initialFamilyMembers, payouts as initialPayouts, utilityBills as initialUtilityBills, otherExpenses as initialExpenses, renters as initialRenters, rooms as initialRooms, rentPayments as initialRentPayments } from "@/lib/data"
 import type { FamilyMember, Payout, UtilityBill, Expense, Room, Renter, RentPayment } from '@/lib/types'
-import { getEffectiveValue } from '@/lib/utils'
+import { getEffectiveValue, findRoomForRenter } from '@/lib/utils'
 import { startOfMonth, isBefore, addMonths, isSameMonth, lastDayOfMonth } from 'date-fns'
 import { useDate } from './date-context'
 
@@ -115,18 +115,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const processedRenters = React.useMemo(() => {
     return renters.map(renter => {
         let cumulativePayable = 0;
-        const room = rooms.find(r => r.id === renter.roomId);
-        if (!room) return { ...renter, cumulativePayable: 0 };
-        
         let currentDate = startOfMonth(initiationDate);
 
-        // Loop from initiation month up to and including the selected month.
         while(isBefore(currentDate, selectedDate) || isSameMonth(currentDate, selectedDate)) {
             const referenceDate = lastDayOfMonth(currentDate);
-            const expected = getEffectiveValue(room.rentHistory, referenceDate);
+            
+            const roomId = findRoomForRenter(renter, referenceDate);
+            const room = rooms.find(r => r.id === roomId);
+            const expected = room ? getEffectiveValue(room.rentHistory, referenceDate) : 0;
+            
             const paid = rentPayments
                 .filter(p => p.renterId === renter.id && isSameMonth(new Date(p.date), currentDate))
                 .reduce((sum, p) => sum + p.amount, 0);
+            
             cumulativePayable += (expected - paid);
             currentDate = addMonths(currentDate, 1);
         }

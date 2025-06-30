@@ -52,10 +52,10 @@ export const rooms: Room[] = [
 ]
 
 export const renters: Renter[] = [
-  { id: "t1", name: "Mr. Karim", roomId: "r101", cumulativePayable: 0 },
-  { id: "t2", name: "Ms. Salma", roomId: "r102", cumulativePayable: 0 },
-  { id: "t3", name: "Mr. Farooq", roomId: "r201", cumulativePayable: 0 },
-  { id: "t4", name: "Mrs. Anika", roomId: "r202", cumulativePayable: 0 },
+  { id: "t1", name: "Mr. Karim", occupancyHistory: [{ roomId: "r101", effectiveDate: "2024-01-01" }], cumulativePayable: 0, status: 'active' },
+  { id: "t2", name: "Ms. Salma", occupancyHistory: [{ roomId: "r102", effectiveDate: "2024-01-01" }], cumulativePayable: 0, status: 'active' },
+  { id: "t3", name: "Mr. Farooq", occupancyHistory: [{ roomId: "r201", effectiveDate: "2024-01-01" }], cumulativePayable: 0, status: 'active' },
+  { id: "t4", name: "Mrs. Anika", occupancyHistory: [{ roomId: "r202", effectiveDate: "2024-01-01" }], cumulativePayable: 0, status: 'active' },
 ]
 
 

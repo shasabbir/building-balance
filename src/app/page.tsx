@@ -17,7 +17,7 @@ import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
 import { isSameMonth, subMonths, lastDayOfMonth } from 'date-fns'
 import type { Renter, RentPayment, FamilyMember, Payout, UtilityBill, Expense, Room } from "@/lib/types"
-import { getEffectiveValue } from "@/lib/utils"
+import { getEffectiveValue, findRoomForRenter } from "@/lib/utils"
 
 const calculateMonthlySummary = (
   targetDate: Date,
@@ -45,10 +45,13 @@ const calculateMonthlySummary = (
   const expensesPaid = monthlyExpenses.reduce((sum, e) => sum + e.amount, 0);
 
   // Calculate expected totals for the target month using historical data
-  const rentExpected = allRenters.reduce((sum, renter) => {
-    const room = allRooms.find(r => r.id === renter.roomId);
-    const rentDue = room ? getEffectiveValue(room.rentHistory, referenceDate) : 0;
-    return sum + rentDue;
+  const rentExpected = allRooms.reduce((sum, room) => {
+    const occupant = allRenters.find(r => r.status === 'active' && findRoomForRenter(r, referenceDate) === room.id);
+    if (occupant) {
+        const rentDue = getEffectiveValue(room.rentHistory, referenceDate);
+        return sum + rentDue;
+    }
+    return sum;
   }, 0);
   const rentPayable = rentExpected - rentCollected;
   

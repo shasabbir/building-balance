@@ -54,7 +54,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
 import { isSameMonth, lastDayOfMonth } from "date-fns"
-import { getEffectiveValue } from "@/lib/utils"
+import { getEffectiveValue, findRoomForRenter, findOccupantForRoom } from "@/lib/utils"
 
 
 export default function RentTenantsPage() {
@@ -66,7 +66,9 @@ export default function RentTenantsPage() {
   const [isRenterDialogOpen, setIsRenterDialogOpen] = React.useState(false)
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = React.useState(false)
   const [isRoomDialogOpen, setIsRoomDialogOpen] = React.useState(false)
-  const [itemToDelete, setItemToDelete] = React.useState<{type: 'renter' | 'payment' | 'room', id: string} | null>(null)
+  
+  const [itemToDelete, setItemToDelete] = React.useState<{type: 'payment' | 'room', id: string} | null>(null)
+  const [itemToArchive, setItemToArchive] = React.useState<Renter | null>(null)
   
   // Editing states
   const [editingRenter, setEditingRenter] = React.useState<Renter | null>(null)
@@ -75,7 +77,7 @@ export default function RentTenantsPage() {
 
   // Renter form state
   const [renterName, setRenterName] = React.useState("")
-  const [renterRoomId, setRenterRoomId] = React.useState("")
+  const [renterRoomId, setRenterRoomId] = React.useState<string | null>(null)
 
   // Payment form state
   const [selectedTenantId, setSelectedTenantId] = React.useState("")
@@ -89,7 +91,8 @@ export default function RentTenantsPage() {
     isSameMonth(selectedDate, new Date()) ? new Date() : lastDayOfMonth(selectedDate)
   ), [selectedDate]);
 
-  const getRoomNumber = (roomId: string) => {
+  const getRoomNumber = (roomId: string | null) => {
+    if (!roomId) return "N/A"
     return rooms.find(r => r.id === roomId)?.number || "N/A"
   }
   
@@ -98,30 +101,84 @@ export default function RentTenantsPage() {
     setEditingRenter(renter)
     if (renter) {
       setRenterName(renter.name)
-      setRenterRoomId(renter.roomId)
+      const currentRoom = findRoomForRenter(renter, new Date())
+      setRenterRoomId(currentRoom)
     } else {
       setRenterName("")
-      setRenterRoomId("")
+      setRenterRoomId(null)
     }
     setIsRenterDialogOpen(true)
   }
 
   const handleRenterSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!renterName || !renterRoomId) return
+    if (!renterName) return
 
-    const renterData = {
-      name: renterName,
-      roomId: renterRoomId,
+    const today = new Date().toISOString()
+    const newRoomId = renterRoomId === '_NONE_' ? null : renterRoomId;
+
+    // Check if the selected room is already occupied by another active renter
+    if (newRoomId) {
+        const occupant = findOccupantForRoom(newRoomId, new Date(), renters);
+        if (occupant && occupant.id !== editingRenter?.id) {
+            toast({
+                variant: "destructive",
+                title: "Room Occupied",
+                description: `Room ${getRoomNumber(newRoomId)} is already occupied by ${occupant.name}. Please assign them to a different room first.`,
+            });
+            return;
+        }
     }
 
     if (editingRenter) {
-      setRenters(renters => renters.map(r => r.id === editingRenter.id ? { ...r, ...renterData } : r))
+        setRenters(renters => renters.map(r => {
+            if (r.id === editingRenter.id) {
+                const occupancyHistory = r.occupancyHistory || [];
+                const lastEntry = occupancyHistory[occupancyHistory.length - 1];
+
+                let updatedHistory = [...occupancyHistory];
+                if (!lastEntry || lastEntry.roomId !== newRoomId) {
+                    updatedHistory.push({ roomId: newRoomId, effectiveDate: today });
+                }
+
+                return {
+                    ...r,
+                    name: renterName,
+                    occupancyHistory: updatedHistory,
+                    status: 'active' // Reactivate if they were archived
+                };
+            }
+            return r;
+        }));
     } else {
-      setRenters(prev => [{ id: `t${Date.now()}`, ...renterData, cumulativePayable: 0 }, ...prev])
+        const newRenter: Renter = {
+            id: `t${Date.now()}`,
+            name: renterName,
+            status: 'active',
+            cumulativePayable: 0,
+            occupancyHistory: [{ roomId: newRoomId, effectiveDate: today }],
+        };
+        setRenters(prev => [newRenter, ...prev]);
     }
-    setIsRenterDialogOpen(false)
+    setIsRenterDialogOpen(false);
   }
+
+  const handleArchiveRenter = () => {
+    if (!itemToArchive) return;
+    
+    setRenters(renters => renters.map(r => {
+        if (r.id === itemToArchive.id) {
+            return {
+                ...r,
+                status: 'archived',
+                occupancyHistory: [...r.occupancyHistory, { roomId: null, effectiveDate: new Date().toISOString() }]
+            }
+        }
+        return r;
+    }));
+    setItemToArchive(null);
+  }
+
 
   // --- Payment Logic ---
   const openPaymentDialog = (payment: RentPayment | null) => {
@@ -143,11 +200,13 @@ export default function RentTenantsPage() {
     const renter = renters.find(r => r.id === selectedTenantId)
     if (!renter) return
 
+    const roomNumber = getRoomNumber(findRoomForRenter(renter, new Date()))
+
     if (editingPayment) {
         const paymentData = {
             renterId: selectedTenantId,
             renterName: renter.name,
-            roomNumber: getRoomNumber(renter.roomId),
+            roomNumber: roomNumber,
             amount: parseFloat(paymentAmount),
         }
         setRentPayments(payments => payments.map(p => p.id === editingPayment.id ? { ...p, ...paymentData } : p))
@@ -157,7 +216,7 @@ export default function RentTenantsPage() {
         const paymentData = {
           renterId: selectedTenantId,
           renterName: renter.name,
-          roomNumber: getRoomNumber(renter.roomId),
+          roomNumber: roomNumber,
           amount: parseFloat(paymentAmount),
           date: transactionDate.toISOString(),
         }
@@ -225,14 +284,10 @@ export default function RentTenantsPage() {
   // --- Delete Logic ---
   const handleDelete = () => {
     if (!itemToDelete) return
-    if (itemToDelete.type === 'renter') {
-      // Also delete associated payments
-      setRentPayments(payments => payments.filter(p => p.renterId !== itemToDelete.id))
-      setRenters(renters => renters.filter(r => r.id !== itemToDelete.id))
-    } else if (itemToDelete.type === 'payment') {
+    if (itemToDelete.type === 'payment') {
       setRentPayments(payments => payments.filter(p => p.id !== itemToDelete.id))
     } else if (itemToDelete.type === 'room') {
-      const isOccupied = renters.some(r => r.roomId === itemToDelete.id)
+      const isOccupied = !!findOccupantForRoom(itemToDelete.id, new Date(), renters)
       if (isOccupied) {
         toast({
           variant: "destructive",
@@ -250,8 +305,6 @@ export default function RentTenantsPage() {
   const getDeleteItemDescription = () => {
     if (!itemToDelete) return ""
     switch (itemToDelete.type) {
-        case 'renter':
-            return "This will permanently delete the renter and all their associated payments. This action cannot be undone."
         case 'payment':
             return "This will permanently delete the rent payment record. This action cannot be undone."
         case 'room':
@@ -259,34 +312,45 @@ export default function RentTenantsPage() {
         default:
             return "This action cannot be undone."
     }
-}
+  }
   
   // --- Memoized Calculations ---
-  const rentersWithSummary = React.useMemo(() => {
-    return renters.map(renter => {
-      const room = rooms.find(r => r.id === renter.roomId)
-      const rentDue = room ? getEffectiveValue(room.rentHistory, referenceDate) : 0
-      const renterPaymentsThisMonth = rentPayments.filter(p => p.renterId === renter.id && isSameMonth(new Date(p.date), selectedDate))
-      const rentPaidThisMonth = renterPaymentsThisMonth.reduce((acc, p) => acc + p.amount, 0)
-      const payableThisMonth = rentDue - rentPaidThisMonth
-      return {
-        ...renter,
-        rentDue,
-        rentPaidThisMonth,
-        payableThisMonth: payableThisMonth > 0 ? payableThisMonth : 0,
-      }
-    }).sort((a,b) => parseInt(getRoomNumber(a.roomId)) - parseInt(getRoomNumber(b.roomId)));
-  }, [renters, rentPayments, rooms, selectedDate, referenceDate])
-  
+  const sortedRooms = React.useMemo(() => {
+    return [...rooms].sort((a,b) => parseInt(a.number) - parseInt(b.number));
+  }, [rooms]);
+
+  const rentStatusSummary = React.useMemo(() => {
+    return sortedRooms.map(room => {
+        const occupant = findOccupantForRoom(room.id, referenceDate, renters);
+        
+        if (occupant) {
+            const rentDue = getEffectiveValue(room.rentHistory, referenceDate);
+            const renterPaymentsThisMonth = rentPayments.filter(p => p.renterId === occupant.id && isSameMonth(new Date(p.date), selectedDate));
+            const rentPaidThisMonth = renterPaymentsThisMonth.reduce((acc, p) => acc + p.amount, 0);
+            const payableThisMonth = rentDue - rentPaidThisMonth;
+            
+            return {
+                room,
+                occupant,
+                rentDue,
+                rentPaidThisMonth,
+                payableThisMonth: payableThisMonth > 0 ? payableThisMonth : 0,
+            };
+        }
+        
+        return { room, occupant: null };
+    });
+  }, [sortedRooms, renters, rentPayments, rooms, selectedDate, referenceDate]);
+
   const monthlyRentPayments = React.useMemo(() => {
       return rentPayments
         .filter(payment => isSameMonth(new Date(payment.date), selectedDate))
         .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [rentPayments, selectedDate])
+  }, [rentPayments, selectedDate]);
+  
+  const activeRenters = React.useMemo(() => renters.filter(r => r.status === 'active'), [renters]);
+  const archivedRenters = React.useMemo(() => renters.filter(r => r.status === 'archived'), [renters]);
 
-  const sortedRooms = React.useMemo(() => {
-    return [...rooms].sort((a,b) => parseInt(a.number) - parseInt(b.number));
-  }, [rooms])
 
   return (
     <div className="flex flex-col gap-8">
@@ -307,12 +371,11 @@ export default function RentTenantsPage() {
         </div>
       </PageHeader>
       
-      {/* Renters Summary Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Rent Collection Status</CardTitle>
+          <CardTitle>Rent Collection Status by Room</CardTitle>
           <CardDescription>
-            Monthly rent status for all tenants for the selected month.
+            Monthly rent status based on room occupancy for the selected month.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -325,41 +388,29 @@ export default function RentTenantsPage() {
                 <TableHead className="text-right">Paid</TableHead>
                 <TableHead className="text-right"><span className="hidden md:inline">This Month </span>Payable</TableHead>
                 <TableHead className="text-right hidden md:table-cell">Total Payable (All Time)</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rentersWithSummary.map((renter) => (
-                <TableRow key={renter.id}>
-                  <TableCell><Badge variant="secondary">{getRoomNumber(renter.roomId)}</Badge></TableCell>
-                  <TableCell className="font-medium">{renter.name}</TableCell>
-                  <TableCell className="text-right">৳{renter.rentDue.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">৳{renter.rentPaidThisMonth.toLocaleString()}</TableCell>
-                  <TableCell className="text-right">
-                    {renter.payableThisMonth > 0 ? (
-                      <Badge variant="destructive">৳{renter.payableThisMonth.toLocaleString()}</Badge>
-                    ) : (
-                      '৳0'
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-semibold hidden md:table-cell">৳{renter.cumulativePayable.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => openRenterDialog(renter)}>Edit Renter</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setItemToDelete({type: 'renter', id: renter.id})} className="text-red-600">Delete Renter</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+              {rentStatusSummary.map(({ room, occupant, rentDue, rentPaidThisMonth, payableThisMonth }) => (
+                <TableRow key={room.id}>
+                  <TableCell><Badge variant="secondary">{room.number}</Badge></TableCell>
+                  <TableCell className="font-medium">{occupant ? occupant.name : <span className="text-muted-foreground">Vacant</span>}</TableCell>
+                  {occupant ? (
+                    <>
+                      <TableCell className="text-right">৳{rentDue?.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">৳{rentPaidThisMonth?.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">
+                        {payableThisMonth && payableThisMonth > 0 ? (
+                          <Badge variant="destructive">৳{payableThisMonth.toLocaleString()}</Badge>
+                        ) : (
+                          '৳0'
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold hidden md:table-cell">৳{occupant.cumulativePayable.toLocaleString()}</TableCell>
+                    </>
+                  ) : (
+                    <TableCell colSpan={4} className="text-center text-muted-foreground">Vacant</TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -367,7 +418,6 @@ export default function RentTenantsPage() {
         </CardContent>
       </Card>
       
-      {/* Rent Payment History Table */}
       <Card>
         <CardHeader>
             <CardTitle>Rent Payment History for this Month</CardTitle>
@@ -417,16 +467,15 @@ export default function RentTenantsPage() {
         </CardContent>
       </Card>
 
-      {/* Rooms Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Manage Rooms</CardTitle>
+          <CardTitle>Manage Rooms & Renters</CardTitle>
           <CardDescription>
-            Add, edit, or remove rooms in the building.
+            Add, edit, or remove rooms and manage renter assignments.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
+        <CardContent className="flex flex-col gap-8">
+           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Room Number</TableHead>
@@ -439,8 +488,8 @@ export default function RentTenantsPage() {
             </TableHeader>
             <TableBody>
               {sortedRooms.map((room) => {
-                const occupant = renters.find(r => r.roomId === room.id);
-                const applicableRent = getEffectiveValue(room.rentHistory, referenceDate);
+                const occupant = findOccupantForRoom(room.id, new Date(), renters);
+                const applicableRent = getEffectiveValue(room.rentHistory, new Date());
                 return (
                     <TableRow key={room.id}>
                         <TableCell className="font-medium">{room.number}</TableCell>
@@ -465,8 +514,74 @@ export default function RentTenantsPage() {
                 )})}
             </TableBody>
           </Table>
+
+          <div>
+             <h3 className="text-lg font-semibold mb-2">Active Renters</h3>
+             <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Renter</TableHead>
+                        <TableHead>Current Room</TableHead>
+                        <TableHead><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {activeRenters.map(renter => {
+                        const currentRoomId = findRoomForRenter(renter, new Date());
+                        return (
+                            <TableRow key={renter.id}>
+                                <TableCell className="font-medium">{renter.name}</TableCell>
+                                <TableCell>{currentRoomId ? getRoomNumber(currentRoomId) : <span className="text-muted-foreground">Unassigned</span>}</TableCell>
+                                <TableCell>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                            <span className="sr-only">Toggle menu</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem onSelect={() => openRenterDialog(renter)}>Edit Renter</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setItemToArchive(renter)} className="text-red-600">Archive Renter</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
+                </TableBody>
+             </Table>
+          </div>
+
+           <div>
+             <h3 className="text-lg font-semibold mb-2">Archived Renters</h3>
+             <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Renter</TableHead>
+                        <TableHead><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {archivedRenters.length > 0 ? archivedRenters.map(renter => (
+                        <TableRow key={renter.id}>
+                            <TableCell className="font-medium text-muted-foreground">{renter.name}</TableCell>
+                            <TableCell>
+                                <Button variant="outline" size="sm" onClick={() => openRenterDialog(renter)}>Reactivate</Button>
+                            </TableCell>
+                        </TableRow>
+                    )) : (
+                        <TableRow>
+                            <TableCell colSpan={2} className="text-center text-muted-foreground p-8">No archived renters.</TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+             </Table>
+          </div>
         </CardContent>
       </Card>
+
 
       {/* Add/Edit Renter Dialog */}
       <Dialog open={isRenterDialogOpen} onOpenChange={setIsRenterDialogOpen}>
@@ -485,20 +600,21 @@ export default function RentTenantsPage() {
                 </div>
                  <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                     <Label htmlFor="room" className="sm:text-right">Room</Label>
-                    <Select value={renterRoomId} onValueChange={setRenterRoomId}>
+                    <Select value={renterRoomId ?? '_NONE_'} onValueChange={setRenterRoomId}>
                         <SelectTrigger className="sm:col-span-3">
                             <SelectValue placeholder="Select a room" />
                         </SelectTrigger>
                         <SelectContent>
-                        {rooms.map((room) => {
-                            const occupant = renters.find(r => r.roomId === room.id);
-                            const isOccupiedByOther = occupant && occupant.id !== editingRenter?.id;
-                            return (
-                                <SelectItem key={room.id} value={room.id} disabled={isOccupiedByOther}>
-                                    {room.number} {isOccupiedByOther ? `(Occupied by ${occupant.name})` : ''}
-                                </SelectItem>
-                            )
-                        })}
+                            <SelectItem value="_NONE_">None (Unassigned)</SelectItem>
+                            {rooms.map((room) => {
+                                const occupant = findOccupantForRoom(room.id, new Date(), renters);
+                                const isOccupiedByOther = occupant && occupant.id !== editingRenter?.id;
+                                return (
+                                    <SelectItem key={room.id} value={room.id} disabled={isOccupiedByOther}>
+                                        {room.number} {isOccupiedByOther ? `(Occupied by ${occupant.name})` : ''}
+                                    </SelectItem>
+                                )
+                            })}
                         </SelectContent>
                     </Select>
                 </div>
@@ -530,9 +646,9 @@ export default function RentTenantsPage() {
                       <SelectValue placeholder="Select a tenant" />
                     </SelectTrigger>
                     <SelectContent>
-                      {renters.map((renter) => (
+                      {activeRenters.map((renter) => (
                         <SelectItem key={renter.id} value={renter.id}>
-                          {renter.name} ({getRoomNumber(renter.roomId)})
+                          {renter.name} ({getRoomNumber(findRoomForRenter(renter, new Date()))})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -579,6 +695,24 @@ export default function RentTenantsPage() {
           </DialogContent>
       </Dialog>
       
+      {/* Archive Confirmation Dialog */}
+       <AlertDialog open={!!itemToArchive} onOpenChange={() => setItemToArchive(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive {itemToArchive?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will make the renter inactive and their room available. All their past payment history will be preserved. This action can be undone by reactivating them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveRenter}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete Confirmation Dialog */}
        <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
         <AlertDialogContent>

@@ -38,7 +38,8 @@ export interface Room {
 export interface Renter {
   id: string
   name: string
-  roomId: string
+  occupancyHistory: { roomId: string | null; effectiveDate: string }[]
+  status: 'active' | 'archived'
   cumulativePayable: number
 }
 
