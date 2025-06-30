@@ -266,7 +266,7 @@ export default function Dashboard() {
                         {recentActivities.map((activity, index) => (
                           <TableRow key={index}>
                             <TableCell className="hidden sm:table-cell">
-                              <Badge variant={activity.status === 'pending' ? 'destructive' : 'secondary'} className="capitalize">{activity.type}</Badge>
+                              <Badge variant={'secondary'} className="capitalize">{activity.type}</Badge>
                             </TableCell>
                             <TableCell>{activity.description}</TableCell>
                             <TableCell className="text-right font-medium">৳{activity.amount.toLocaleString()}</TableCell>

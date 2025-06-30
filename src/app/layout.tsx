@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { DateProvider } from '@/contexts/date-context';
 import { DataProvider } from '@/contexts/data-context';
 import { ThemeProvider } from '@/components/theme-provider';
+import { PinAuth } from '@/components/pin-auth';
 
 export const metadata: Metadata = {
   title: 'Building Balance',
@@ -30,13 +31,15 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <DateProvider>
-            <DataProvider>
-              <AppLayout>
-                {children}
-              </AppLayout>
-            </DataProvider>
-          </DateProvider>
+            <PinAuth>
+              <DateProvider>
+                <DataProvider>
+                  <AppLayout>
+                    {children}
+                  </AppLayout>
+                </DataProvider>
+              </DateProvider>
+            </PinAuth>
           <Toaster />
         </ThemeProvider>
       </body>
