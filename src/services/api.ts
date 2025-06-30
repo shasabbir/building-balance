@@ -2,19 +2,35 @@
 import { API_URL } from '@/config';
 import type { Renter, Room, RentPayment, FamilyMember, Payout, UtilityBill, Expense } from '@/lib/types';
 
+async function handleAuthError(result: any) {
+    if (result.status !== 'success' && result.message === 'Authentication failed.') {
+        console.error("Authentication failed. Clearing session.");
+        localStorage.removeItem('pin');
+        localStorage.removeItem('isPinAuthenticated');
+        window.location.reload();
+    }
+}
+
 async function postRequest(payload: { action: string; data?: any }) {
     if (API_URL.includes("YOUR_GOOGLE_APPS_SCRIPT_URL_HERE")) {
         console.error("API_URL is not set in src/config.ts. Please deploy your Google Apps Script and update the URL.");
         throw new Error("API URL not configured.");
     }
     
+    const pin = localStorage.getItem('pin');
+    if (payload.action !== 'checkPin' && !pin) {
+        throw new Error("User not authenticated.");
+    }
+
+    const body = JSON.stringify({ ...payload, pin });
+    
     const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
-            'Content-Type': 'text/plain;charset=utf-8', // Required for Apps Script POST requests
+            'Content-Type': 'text/plain;charset=utf-8',
         },
-        body: JSON.stringify(payload),
-        redirect: 'follow', // Required for Apps Script redirects
+        body: body,
+        redirect: 'follow',
     });
 
     if (!response.ok) {
@@ -22,6 +38,7 @@ async function postRequest(payload: { action: string; data?: any }) {
     }
 
     const result = await response.json();
+    handleAuthError(result);
 
     if (result.status !== 'success') {
         throw new Error(result.message || 'An unknown API error occurred');
@@ -36,8 +53,15 @@ async function getRequest(params: Record<string, string>) {
         throw new Error("API URL not configured.");
     }
 
+    const pin = localStorage.getItem('pin');
+    if (!pin) {
+        throw new Error("User not authenticated.");
+    }
+
     const url = new URL(API_URL);
     Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+    url.searchParams.append('pin', pin);
+
 
     const response = await fetch(url.toString(), {
         method: 'GET',
@@ -49,6 +73,7 @@ async function getRequest(params: Record<string, string>) {
     }
 
     const result = await response.json();
+    handleAuthError(result);
 
     if (result.status !== 'success') {
         throw new Error(result.message || 'An unknown API error occurred');
