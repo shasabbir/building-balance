@@ -180,7 +180,7 @@ export default function Dashboard() {
           <TabsTrigger value="all-time">All Time</TabsTrigger>
         </TabsList>
         <TabsContent value="monthly" className="space-y-4 pt-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Carry Over</CardTitle>
@@ -219,6 +219,18 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="text-2xl font-bold">৳{(currentMonthSummary.bills + currentMonthSummary.expenses).toLocaleString()}</div>
                   <p className="text-xs text-muted-foreground">Bills: ৳{currentMonthSummary.bills.toLocaleString()}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">This Month's Balance</CardTitle>
+                  <Wallet className={`h-4 w-4 ${currentMonthSummary.balance >= 0 ? "text-muted-foreground" : "text-red-500"}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${currentMonthSummary.balance < 0 && "text-red-600 dark:text-red-400"}`}>
+                      ৳{currentMonthSummary.balance.toLocaleString()}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Without carry over</p>
                 </CardContent>
               </Card>
               <Card className={finalBalance >= 0 ? "border-green-500/50 dark:border-green-500/40" : "border-red-500/50 dark:border-red-500/40"}>
