@@ -94,41 +94,39 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [isLoaded, familyMembers, payouts, utilityBills, otherExpenses, rooms, renters, rentPayments, initiationDate]);
   
   const processedFamilyMembers = React.useMemo(() => {
-    const endOfPreviousMonth = startOfMonth(selectedDate);
     return familyMembers.map(member => {
         let cumulativePayable = 0;
-        if (isBefore(initiationDate, endOfPreviousMonth)) {
-            let currentDate = startOfMonth(initiationDate);
-            while (isBefore(currentDate, endOfPreviousMonth)) {
-                const expected = getEffectiveValue(member.expectedHistory, currentDate);
-                const paid = payouts
-                    .filter(p => p.familyMemberId === member.id && isSameMonth(new Date(p.date), currentDate))
-                    .reduce((sum, p) => sum + p.amount, 0);
-                cumulativePayable += (expected - paid);
-                currentDate = addMonths(currentDate, 1);
-            }
+        let currentDate = startOfMonth(initiationDate);
+
+        // Loop from initiation month up to and including the selected month.
+        while (isBefore(currentDate, selectedDate) || isSameMonth(currentDate, selectedDate)) {
+            const expected = getEffectiveValue(member.expectedHistory, currentDate);
+            const paid = payouts
+                .filter(p => p.familyMemberId === member.id && isSameMonth(new Date(p.date), currentDate))
+                .reduce((sum, p) => sum + p.amount, 0);
+            cumulativePayable += (expected - paid);
+            currentDate = addMonths(currentDate, 1);
         }
         return { ...member, cumulativePayable: cumulativePayable > 0 ? cumulativePayable : 0 };
     });
   }, [familyMembers, payouts, initiationDate, selectedDate]);
 
   const processedRenters = React.useMemo(() => {
-    const endOfPreviousMonth = startOfMonth(selectedDate);
     return renters.map(renter => {
         let cumulativePayable = 0;
         const room = rooms.find(r => r.id === renter.roomId);
         if (!room) return { ...renter, cumulativePayable: 0 };
         
-        if (isBefore(initiationDate, endOfPreviousMonth)) {
-            let currentDate = startOfMonth(initiationDate);
-            while(isBefore(currentDate, endOfPreviousMonth)) {
-                const expected = getEffectiveValue(room.rentHistory, currentDate);
-                const paid = rentPayments
-                    .filter(p => p.renterId === renter.id && isSameMonth(new Date(p.date), currentDate))
-                    .reduce((sum, p) => sum + p.amount, 0);
-                cumulativePayable += (expected - paid);
-                currentDate = addMonths(currentDate, 1);
-            }
+        let currentDate = startOfMonth(initiationDate);
+
+        // Loop from initiation month up to and including the selected month.
+        while(isBefore(currentDate, selectedDate) || isSameMonth(currentDate, selectedDate)) {
+            const expected = getEffectiveValue(room.rentHistory, currentDate);
+            const paid = rentPayments
+                .filter(p => p.renterId === renter.id && isSameMonth(new Date(p.date), currentDate))
+                .reduce((sum, p) => sum + p.amount, 0);
+            cumulativePayable += (expected - paid);
+            currentDate = addMonths(currentDate, 1);
         }
         return { ...renter, cumulativePayable: cumulativePayable > 0 ? cumulativePayable : 0 };
     });
