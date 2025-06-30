@@ -54,7 +54,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
-import { isSameMonth, lastDayOfMonth, isAfter, isBefore, startOfMonth, subMonths } from "date-fns"
+import { isSameMonth, lastDayOfMonth, isAfter, isBefore, startOfMonth, subMonths, startOfDay } from "date-fns"
 import { getEffectiveValue, findRoomForRenter, findOccupantForRoom } from "@/lib/utils"
 
 
@@ -367,11 +367,11 @@ export default function RentTenantsPage() {
         if (!r.occupancyHistory || r.occupancyHistory.length === 0) return false;
 
         const sortedHistory = [...r.occupancyHistory].sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
-        const tenancyStartDate = new Date(sortedHistory[0].effectiveDate);
+        const tenancyStartDate = startOfDay(new Date(sortedHistory[0].effectiveDate));
         if (isAfter(tenancyStartDate, lastDayOfMonth(selectedDate))) return false;
 
         const moveOutEntry = sortedHistory.find(entry => entry.roomId === null);
-        if (moveOutEntry && isBefore(new Date(moveOutEntry.effectiveDate), startOfMonth(selectedDate))) return false;
+        if (moveOutEntry && isBefore(startOfDay(new Date(moveOutEntry.effectiveDate)), startOfMonth(selectedDate))) return false;
         
         const roomForRenterThisMonth = findRoomForRenter(r, referenceDate);
         if (roomForRenterThisMonth) return false;
@@ -413,12 +413,12 @@ export default function RentTenantsPage() {
       if (!renter.occupancyHistory || renter.occupancyHistory.length === 0) return false;
       
       const sortedHistory = [...renter.occupancyHistory].sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
-      const tenancyStartDate = new Date(sortedHistory[0].effectiveDate);
+      const tenancyStartDate = startOfDay(new Date(sortedHistory[0].effectiveDate));
 
       if (isAfter(tenancyStartDate, lastDayOfMonth(selectedDate))) return false;
       
       const moveOutEntry = sortedHistory.find(entry => entry.roomId === null);
-      if (moveOutEntry && isBefore(new Date(moveOutEntry.effectiveDate), startOfMonth(selectedDate))) return false;
+      if (moveOutEntry && isBefore(startOfDay(new Date(moveOutEntry.effectiveDate)), startOfMonth(selectedDate))) return false;
       
       return true;
     });
@@ -832,3 +832,5 @@ export default function RentTenantsPage() {
     </div>
   )
 }
+
+    
