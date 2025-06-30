@@ -2,7 +2,7 @@
 "use client"
 import * as React from "react"
 import { DollarSign, Users, Home, Receipt, Wallet, TrendingUp, TrendingDown, Repeat } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -47,7 +47,7 @@ const calculateMonthlySummary = (
 
   // Calculate expected totals for the target month using historical data
   const rentExpected = allRooms.reduce((sum, room) => {
-    const occupant = findOccupantForRoom(room.id, referenceDate, allRenters);
+    const occupant = findOccupantForRoom(room.id, referenceDate, allRenters, true);
     if (occupant) {
         const rentDue = getEffectiveValue(room.rentHistory, referenceDate);
         return sum + rentDue;
@@ -77,25 +77,48 @@ const calculateMonthlySummary = (
 const calculateAllTimeSummary = (
   selectedDate: Date,
   initiationDate: Date,
+  allRenters: Renter[],
+  allRooms: Room[],
+  allFamilyMembers: FamilyMember[],
   allRentPayments: RentPayment[],
   allPayouts: Payout[],
   allBills: UtilityBill[],
   allExpenses: Expense[]
 ) => {
   let rentCollected = 0;
+  let rentExpected = 0;
   let payoutsPaid = 0;
+  let payoutsExpected = 0;
   let billsPaid = 0;
   let expensesPaid = 0;
 
   let currentDate = startOfMonth(initiationDate);
 
   while (isBefore(currentDate, selectedDate) || isSameMonth(currentDate, selectedDate)) {
+    const referenceDate = lastDayOfMonth(currentDate);
+
+    // Rent
     rentCollected += allRentPayments
       .filter(p => isSameMonth(new Date(p.date), currentDate))
       .reduce((sum, p) => sum + p.amount, 0);
+    
+    rentExpected += allRooms.reduce((sum, room) => {
+        const occupant = findOccupantForRoom(room.id, referenceDate, allRenters, true);
+        if (occupant) {
+            const rentDue = getEffectiveValue(room.rentHistory, referenceDate);
+            return sum + rentDue;
+        }
+        return sum;
+    }, 0);
+
+    // Payouts
     payoutsPaid += allPayouts
       .filter(p => isSameMonth(new Date(p.date), currentDate))
       .reduce((sum, p) => sum + p.amount, 0);
+
+    payoutsExpected += allFamilyMembers.reduce((sum, m) => sum + getEffectiveValue(m.expectedHistory, referenceDate), 0);
+    
+    // Bills & Expenses
     billsPaid += allBills
       .filter(b => isSameMonth(new Date(b.date), currentDate))
       .reduce((sum, b) => sum + b.amount, 0);
@@ -109,10 +132,12 @@ const calculateAllTimeSummary = (
   const totalIncome = rentCollected;
   const totalOutgoing = payoutsPaid + billsPaid + expensesPaid;
   const balance = totalIncome - totalOutgoing;
+  const rentPayable = rentExpected - rentCollected > 0 ? rentExpected - rentCollected : 0;
+  const payoutsPayable = payoutsExpected - payoutsPaid > 0 ? payoutsExpected - payoutsPaid : 0;
 
   return {
-    rentCollected,
-    payoutsPaid,
+    rent: { collected: rentCollected, expected: rentExpected, payable: rentPayable },
+    payouts: { paid: payoutsPaid, expected: payoutsExpected, payable: payoutsPayable },
     billsPaid,
     expensesPaid,
     totalIncome,
@@ -129,7 +154,7 @@ export default function Dashboard() {
 
   const previousMonthSummary = calculateMonthlySummary(previousMonth, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms)
   const currentMonthSummary = calculateMonthlySummary(selectedDate, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms)
-  const allTimeSummary = calculateAllTimeSummary(selectedDate, initiationDate, rentPayments, payouts, utilityBills, otherExpenses)
+  const allTimeSummary = calculateAllTimeSummary(selectedDate, initiationDate, renters, rooms, familyMembers, rentPayments, payouts, utilityBills, otherExpenses)
 
 
   const carryOver = previousMonthSummary.balance
@@ -295,8 +320,8 @@ export default function Dashboard() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">৳{allTimeSummary.rentCollected.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">From {format(initiationDate, "MMM yyyy")} until this month</p>
+                  <div className="text-2xl font-bold">৳{allTimeSummary.rent.collected.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">Expected: ৳{allTimeSummary.rent.expected.toLocaleString()}</p>
                 </CardContent>
               </Card>
               <Card>
@@ -305,8 +330,8 @@ export default function Dashboard() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">৳{allTimeSummary.payoutsPaid.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">All payouts to family members</p>
+                  <div className="text-2xl font-bold">৳{allTimeSummary.payouts.paid.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">Expected: ৳{allTimeSummary.payouts.expected.toLocaleString()}</p>
                 </CardContent>
               </Card>
               <Card>
@@ -316,6 +341,7 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">৳{(allTimeSummary.billsPaid + allTimeSummary.expensesPaid).toLocaleString()}</div>
+
                   <p className="text-xs text-muted-foreground">Utilities and other expenses</p>
                 </CardContent>
               </Card>
@@ -332,10 +358,54 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
            </div>
+           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+                <Card className="lg:col-span-7">
+                    <CardHeader>
+                        <CardTitle>All-Time Financial Summary</CardTitle>
+                        <CardDescription>From {format(initiationDate, "MMM yyyy")} until this month</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                      <div className="flex items-center gap-4">
+                        <div className="bg-green-500/10 dark:bg-green-500/20 p-3 rounded-full">
+                          <TrendingUp className="h-6 w-6 text-green-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Income</p>
+                          <p className="text-lg font-bold">৳{allTimeSummary.totalIncome.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="bg-red-500/10 dark:bg-red-500/20 p-3 rounded-full">
+                          <TrendingDown className="h-6 w-6 text-red-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Outgoing</p>
+                          <p className="text-lg font-bold">৳{allTimeSummary.totalOutgoing.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                          <div className="bg-yellow-500/10 dark:bg-yellow-500/20 p-3 rounded-full">
+                          <Home className="h-6 w-6 text-yellow-500" />
+                          </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Rent Payable</p>
+                          <p className="text-lg font-bold">৳{allTimeSummary.rent.payable.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                          <div className="bg-blue-500/10 dark:bg-blue-500/20 p-3 rounded-full">
+                          <Users className="h-6 w-6 text-blue-500" />
+                          </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Total Family Payouts Payable</p>
+                          <p className="text-lg font-bold">৳{allTimeSummary.payouts.payable.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                </Card>
+            </div>
         </TabsContent>
       </Tabs>
     </div>
   )
 }
-
-    
