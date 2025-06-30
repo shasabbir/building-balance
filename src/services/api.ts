@@ -59,6 +59,7 @@ async function getRequest(params: Record<string, string>) {
 
 export const api = {
     sync: () => getRequest({ action: 'sync' }),
+    checkPin: (pin: string) => postRequest({ action: 'checkPin', data: { pin } }),
     
     // Renter
     addRenter: (data: Renter) => postRequest({ action: 'addRenter', data }),
