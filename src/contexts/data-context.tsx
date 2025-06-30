@@ -4,7 +4,7 @@ import * as React from 'react'
 import { familyMembers as initialFamilyMembers, payouts as initialPayouts, utilityBills as initialUtilityBills, otherExpenses as initialExpenses, renters as initialRenters, rooms as initialRooms, rentPayments as initialRentPayments } from "@/lib/data"
 import type { FamilyMember, Payout, UtilityBill, Expense, Room, Renter, RentPayment } from '@/lib/types'
 import { getEffectiveValue } from '@/lib/utils'
-import { startOfMonth, isBefore, addMonths, isSameMonth } from 'date-fns'
+import { startOfMonth, isBefore, addMonths, isSameMonth, lastDayOfMonth } from 'date-fns'
 import { useDate } from './date-context'
 
 type DataContextType = {
@@ -100,7 +100,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
         // Loop from initiation month up to and including the selected month.
         while (isBefore(currentDate, selectedDate) || isSameMonth(currentDate, selectedDate)) {
-            const expected = getEffectiveValue(member.expectedHistory, currentDate);
+            const referenceDate = lastDayOfMonth(currentDate);
+            const expected = getEffectiveValue(member.expectedHistory, referenceDate);
             const paid = payouts
                 .filter(p => p.familyMemberId === member.id && isSameMonth(new Date(p.date), currentDate))
                 .reduce((sum, p) => sum + p.amount, 0);
@@ -121,7 +122,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
         // Loop from initiation month up to and including the selected month.
         while(isBefore(currentDate, selectedDate) || isSameMonth(currentDate, selectedDate)) {
-            const expected = getEffectiveValue(room.rentHistory, currentDate);
+            const referenceDate = lastDayOfMonth(currentDate);
+            const expected = getEffectiveValue(room.rentHistory, referenceDate);
             const paid = rentPayments
                 .filter(p => p.renterId === renter.id && isSameMonth(new Date(p.date), currentDate))
                 .reduce((sum, p) => sum + p.amount, 0);
