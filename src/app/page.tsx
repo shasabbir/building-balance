@@ -99,10 +99,10 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Carry Over</CardTitle>
-            <Repeat className={`h-4 w-4 ${carryOver >= 0 ? "text-muted-foreground" : "text-red-600"}`} />
+            <Repeat className={`h-4 w-4 ${carryOver >= 0 ? "text-muted-foreground" : "text-red-500"}`} />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${carryOver < 0 && "text-red-600"}`}>৳{carryOver.toLocaleString()}</div>
+            <div className={`text-2xl font-bold ${carryOver < 0 && "text-red-600 dark:text-red-400"}`}>৳{carryOver.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">From last month</p>
           </CardContent>
         </Card>
@@ -136,13 +136,13 @@ export default function Dashboard() {
             <p className="text-xs text-muted-foreground">Bills: ৳{currentMonthSummary.bills.toLocaleString()}</p>
           </CardContent>
         </Card>
-        <Card className={finalBalance >= 0 ? "border-green-500/50" : "border-red-500/50"}>
+        <Card className={finalBalance >= 0 ? "border-green-500/50 dark:border-green-500/40" : "border-red-500/50 dark:border-red-500/40"}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Final Balance</CardTitle>
-            <Wallet className={`h-4 w-4 ${finalBalance >= 0 ? "text-green-600" : "text-red-600"}`} />
+            <Wallet className={`h-4 w-4 ${finalBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${finalBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
+            <div className={`text-2xl font-bold ${finalBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
               ৳{finalBalance.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">Incl. carry over</p>
@@ -188,8 +188,8 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="grid gap-6">
              <div className="flex items-center gap-4">
-               <div className="bg-green-100 p-3 rounded-full">
-                <TrendingUp className="h-6 w-6 text-green-600" />
+               <div className="bg-green-500/10 dark:bg-green-500/20 p-3 rounded-full">
+                <TrendingUp className="h-6 w-6 text-green-500" />
                </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Income</p>
@@ -197,8 +197,8 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <div className="bg-red-100 p-3 rounded-full">
-                <TrendingDown className="h-6 w-6 text-red-600" />
+              <div className="bg-red-500/10 dark:bg-red-500/20 p-3 rounded-full">
+                <TrendingDown className="h-6 w-6 text-red-500" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Outgoing</p>
@@ -206,8 +206,8 @@ export default function Dashboard() {
               </div>
             </div>
              <div className="flex items-center gap-4">
-                <div className="bg-yellow-100 p-3 rounded-full">
-                 <Home className="h-6 w-6 text-yellow-600" />
+                <div className="bg-yellow-500/10 dark:bg-yellow-500/20 p-3 rounded-full">
+                 <Home className="h-6 w-6 text-yellow-500" />
                 </div>
                <div>
                  <p className="text-sm text-muted-foreground">Rent Payable</p>
@@ -215,8 +215,8 @@ export default function Dashboard() {
                </div>
              </div>
              <div className="flex items-center gap-4">
-                <div className="bg-blue-100 p-3 rounded-full">
-                 <Users className="h-6 w-6 text-blue-600" />
+                <div className="bg-blue-500/10 dark:bg-blue-500/20 p-3 rounded-full">
+                 <Users className="h-6 w-6 text-blue-500" />
                 </div>
                <div>
                  <p className="text-sm text-muted-foreground">Family Payouts Payable</p>
