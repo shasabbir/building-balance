@@ -75,6 +75,7 @@ export default function FamilyPaymentsPage() {
   // Payout Form State
   const [selectedMemberId, setSelectedMemberId] = React.useState("")
   const [payoutAmount, setPayoutAmount] = React.useState("")
+  const [payoutDetails, setPayoutDetails] = React.useState("")
   
   // Member Form State
   const [memberName, setMemberName] = React.useState("")
@@ -89,9 +90,11 @@ export default function FamilyPaymentsPage() {
       if (payout) {
           setSelectedMemberId(payout.familyMemberId)
           setPayoutAmount(payout.amount.toString())
+          setPayoutDetails(payout.details || "")
       } else {
           setSelectedMemberId("")
           setPayoutAmount("")
+          setPayoutDetails("")
       }
       setIsPayoutDialogOpen(true)
   }
@@ -111,6 +114,7 @@ export default function FamilyPaymentsPage() {
             familyMemberId: selectedMemberId,
             familyMemberName: member.name,
             amount: parseFloat(payoutAmount),
+            details: payoutDetails,
           }
           await updatePayout(payoutData)
       } else {
@@ -121,6 +125,7 @@ export default function FamilyPaymentsPage() {
             familyMemberName: member.name,
             amount: parseFloat(payoutAmount),
             date: transactionDate.toISOString(),
+            details: payoutDetails,
           }
           await addPayout(payoutData)
       }
@@ -346,6 +351,7 @@ export default function FamilyPaymentsPage() {
                         <TableRow>
                             <TableHead>Date</TableHead>
                             <TableHead>Member Name</TableHead>
+                            <TableHead>Details</TableHead>
                             <TableHead className="text-right">Amount</TableHead>
                             <TableHead><span className="sr-only">Actions</span></TableHead>
                         </TableRow>
@@ -355,6 +361,7 @@ export default function FamilyPaymentsPage() {
                             <TableRow key={payout.id}>
                                 <TableCell>{new Date(payout.date).toLocaleDateString()}</TableCell>
                                 <TableCell className="font-medium">{payout.familyMemberName}</TableCell>
+                                <TableCell>{payout.details || "-"}</TableCell>
                                 <TableCell className="text-right">৳{payout.amount.toLocaleString()}</TableCell>
                                 <TableCell>
                                     <DropdownMenu>
@@ -376,7 +383,7 @@ export default function FamilyPaymentsPage() {
                     </TableBody>
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={2} className="font-bold">Total</TableCell>
+                            <TableCell colSpan={3} className="font-bold">Total</TableCell>
                             <TableCell className="text-right font-bold">৳{totalMonthlyPayouts.toLocaleString()}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>
@@ -469,6 +476,12 @@ export default function FamilyPaymentsPage() {
                     Amount Paid
                   </Label>
                   <Input id="amount" type="number" className="sm:col-span-3" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} />
+                </div>
+                <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
+                  <Label htmlFor="details" className="sm:text-right">
+                    Details (Optional)
+                  </Label>
+                  <Input id="details" className="sm:col-span-3" value={payoutDetails} onChange={(e) => setPayoutDetails(e.target.value)} />
                 </div>
               </div>
               <DialogFooter>

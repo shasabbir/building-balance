@@ -11,9 +11,9 @@ export const familyMembers: FamilyMember[] = [
 
 export const payouts: Payout[] = [
     // July 2024
-    { id: "p1", familyMemberId: "1", familyMemberName: "Sabbir", amount: 10000, date: "2024-07-01" },
+    { id: "p1", familyMemberId: "1", familyMemberName: "Sabbir", amount: 10000, date: "2024-07-01", details: "Monthly allowance" },
     { id: "p2", familyMemberId: "2", familyMemberName: "Sumon", amount: 4000, date: "2024-07-05" },
-    { id: "p3", familyMemberId: "2", familyMemberName: "Sumon", amount: 4000, date: "2024-07-15" },
+    { id: "p3", familyMemberId: "2", familyMemberName: "Sumon", amount: 4000, date: "2024-07-15", details: "Partial payment" },
     { id: "p4", familyMemberId: "3", familyMemberName: "Juel", amount: 12000, date: "2024-07-02" },
     { id: "p5", familyMemberId: "4", familyMemberName: "Suma", amount: 5000, date: "2024-07-03" },
     { id: "p6", familyMemberId: "5", familyMemberName: "Bibi Howa", amount: 8000, date: "2024-07-04" },
@@ -21,7 +21,7 @@ export const payouts: Payout[] = [
     { id: "p7", familyMemberId: "1", familyMemberName: "Sabbir", amount: 10000, date: "2024-06-01" },
     { id: "p8", familyMemberId: "2", familyMemberName: "Sumon", amount: 10000, date: "2024-06-05" },
     // August 2024
-    { id: "p9", familyMemberId: "3", familyMemberName: "Juel", amount: 6000, date: "2024-08-02" },
+    { id: "p9", familyMemberId: "3", familyMemberName: "Juel", amount: 6000, date: "2024-08-02", details: "Advance" },
 ]
 
 

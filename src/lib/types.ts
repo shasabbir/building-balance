@@ -11,6 +11,7 @@ export interface Payout {
   familyMemberName: string
   amount: number
   date: string
+  details?: string
 }
 
 export interface UtilityBill {
