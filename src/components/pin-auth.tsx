@@ -48,6 +48,7 @@ export function PinAuth({ children }: { children: React.ReactNode }) {
     try {
       await api.checkPin(pin)
       localStorage.setItem('isPinAuthenticated', 'true')
+      localStorage.setItem('pin', pin)
       setIsAuthenticated(true)
     } catch (error) {
       toast({
