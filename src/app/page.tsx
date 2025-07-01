@@ -76,6 +76,38 @@ const calculateMonthlySummary = (
   };
 };
 
+const calculateCarryOverBalance = (
+  targetDate: Date,
+  initiationDate: Date,
+  allRenters: Renter[],
+  allRentPayments: RentPayment[],
+  allFamilyMembers: FamilyMember[],
+  allPayouts: Payout[],
+  allBills: UtilityBill[],
+  allExpenses: Expense[],
+  allRooms: Room[]
+) => {
+  let balance = 0;
+  let currentDate = startOfMonth(initiationDate);
+  const untilDate = startOfMonth(targetDate);
+
+  while (isBefore(currentDate, untilDate)) {
+    const monthlySummary = calculateMonthlySummary(
+      currentDate,
+      allRenters,
+      allRentPayments,
+      allFamilyMembers,
+      allPayouts,
+      allBills,
+      allExpenses,
+      allRooms
+    );
+    balance += monthlySummary.balance;
+    currentDate = addMonths(currentDate, 1);
+  }
+  return balance;
+};
+
 const calculateAllTimeSummary = (
   selectedDate: Date,
   initiationDate: Date,
@@ -153,14 +185,11 @@ export default function Dashboard() {
   const { renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms, initiationDate } = useData()
   const { language, t } = useLanguage()
 
-  const previousMonth = subMonths(selectedDate, 1)
-
-  const previousMonthSummary = calculateMonthlySummary(previousMonth, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms)
   const currentMonthSummary = calculateMonthlySummary(selectedDate, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms)
   const allTimeSummary = calculateAllTimeSummary(selectedDate, initiationDate, renters, rooms, familyMembers, rentPayments, payouts, utilityBills, otherExpenses)
+  const carryOver = calculateCarryOverBalance(selectedDate, initiationDate, renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms);
 
 
-  const carryOver = previousMonthSummary.balance
   const finalBalance = carryOver + currentMonthSummary.balance
 
   const recentActivities = React.useMemo(() => {
