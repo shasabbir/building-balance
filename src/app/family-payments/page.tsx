@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/select"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
+import { useLanguage } from "@/contexts/language-context"
 import { isSameMonth, lastDayOfMonth } from "date-fns"
 import { getEffectiveValue } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -62,6 +63,7 @@ export default function FamilyPaymentsPage() {
   const { payouts, familyMembers, addPayout, updatePayout, deletePayout, addFamilyMember, updateFamilyMember, deleteFamilyMember } = useData()
   const { selectedDate } = useDate()
   const { toast } = useToast()
+  const { t } = useLanguage()
 
   const [isPayoutDialogOpen, setIsPayoutDialogOpen] = React.useState(false)
   const [isMemberDialogOpen, setIsMemberDialogOpen] = React.useState(false)
@@ -212,8 +214,8 @@ export default function FamilyPaymentsPage() {
           if (hasPayouts) {
             toast({
               variant: "destructive",
-              title: "Cannot Delete Member",
-              description: "This family member has existing payout records.",
+              title: t('familyPayments.cannotDeleteMemberTitle'),
+              description: t('familyPayments.cannotDeleteMemberDesc'),
             })
             setItemToDelete(null)
             return
@@ -232,11 +234,11 @@ export default function FamilyPaymentsPage() {
     if (!itemToDelete) return ""
     switch (itemToDelete.type) {
         case 'payout':
-            return "This will permanently delete the payout record. This action cannot be undone."
+            return t('familyPayments.deletePayoutDesc');
         case 'member':
-            return "This will permanently delete the family member and all their records. This action cannot be undone."
+            return t('familyPayments.deleteMemberDesc');
         default:
-            return "This action cannot be undone."
+            return ""
     }
   }
 
@@ -280,33 +282,33 @@ export default function FamilyPaymentsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Family Payments">
+      <PageHeader title={t('familyPayments.title')}>
         <div className="flex gap-2">
             <Button size="sm" className="gap-1" onClick={() => openMemberDialog(null)}>
                 <PlusCircle className="h-4 w-4" />
-                Add Family Member
+                {t('familyPayments.addMember')}
             </Button>
             <Button size="sm" className="gap-1" onClick={() => openPayoutDialog(null)}>
                 <PlusCircle className="h-4 w-4" />
-                Add Payout
+                {t('familyPayments.addPayout')}
             </Button>
         </div>
       </PageHeader>
       
       <Card>
         <CardHeader>
-          <CardTitle>Payout Summary</CardTitle>
-          <CardDescription>Monthly expected and paid amounts for each family member.</CardDescription>
+          <CardTitle>{t('familyPayments.payoutSummary')}</CardTitle>
+          <CardDescription>{t('familyPayments.payoutSummaryDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Member Name</TableHead>
-                <TableHead className="text-right">Expected</TableHead>
-                <TableHead className="text-right">Paid<span className="hidden md:inline"> This Month</span></TableHead>
-                <TableHead className="text-right"><span className="hidden md:inline">This Month </span>Payable</TableHead>
-                <TableHead className="text-right hidden md:table-cell">Total Payable (All Time)</TableHead>
+                <TableHead>{t('familyPayments.memberName')}</TableHead>
+                <TableHead className="text-right">{t('common.expected')}</TableHead>
+                <TableHead className="text-right">{t('familyPayments.paidThisMonth')}<span className="hidden md:inline"> {t('common.thisMonth')}</span></TableHead>
+                <TableHead className="text-right"><span className="hidden md:inline">{t('common.thisMonth')} </span>{t('common.payable')}</TableHead>
+                <TableHead className="text-right hidden md:table-cell">{t('familyPayments.totalPayableAllTime')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -328,7 +330,7 @@ export default function FamilyPaymentsPage() {
             </TableBody>
             <TableFooter>
                 <TableRow>
-                    <TableCell className="font-bold">Total</TableCell>
+                    <TableCell className="font-bold">{t('common.total')}</TableCell>
                     <TableCell className="text-right font-bold">৳{summaryTotals.expected.toLocaleString()}</TableCell>
                     <TableCell className="text-right font-bold">৳{summaryTotals.paid.toLocaleString()}</TableCell>
                     <TableCell className="text-right font-bold">৳{summaryTotals.payable.toLocaleString()}</TableCell>
@@ -341,19 +343,19 @@ export default function FamilyPaymentsPage() {
       
       <Card>
         <CardHeader>
-            <CardTitle>Payout History for this Month</CardTitle>
-            <CardDescription>Full list of all payouts made this month.</CardDescription>
+            <CardTitle>{t('familyPayments.payoutHistory')}</CardTitle>
+            <CardDescription>{t('familyPayments.payoutHistoryDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
             {monthlyPayouts.length > 0 ? (
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Member Name</TableHead>
-                            <TableHead>Details</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead><span className="sr-only">Actions</span></TableHead>
+                            <TableHead>{t('common.date')}</TableHead>
+                            <TableHead>{t('familyPayments.memberName')}</TableHead>
+                            <TableHead>{t('common.details')}</TableHead>
+                            <TableHead className="text-right">{t('common.amount')}</TableHead>
+                            <TableHead><span className="sr-only">{t('common.actions')}</span></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -368,13 +370,13 @@ export default function FamilyPaymentsPage() {
                                         <DropdownMenuTrigger asChild>
                                             <Button aria-haspopup="true" size="icon" variant="ghost">
                                             <MoreHorizontal className="h-4 w-4" />
-                                            <span className="sr-only">Toggle menu</span>
+                                            <span className="sr-only">{t('common.toggleMenu')}</span>
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onSelect={() => openPayoutDialog(payout)}>Edit</DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setItemToDelete({ type: 'payout', id: payout.id })} className="text-red-600">Delete</DropdownMenuItem>
+                                            <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
+                                            <DropdownMenuItem onSelect={() => openPayoutDialog(payout)}>{t('common.edit')}</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setItemToDelete({ type: 'payout', id: payout.id })} className="text-red-600">{t('common.delete')}</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -383,30 +385,30 @@ export default function FamilyPaymentsPage() {
                     </TableBody>
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={3} className="font-bold">Total</TableCell>
+                            <TableCell colSpan={3} className="font-bold">{t('common.total')}</TableCell>
                             <TableCell className="text-right font-bold">৳{totalMonthlyPayouts.toLocaleString()}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>
                     </TableFooter>
                 </Table>
             ) : (
-                <div className="text-center text-muted-foreground p-8">No payouts this month.</div>
+                <div className="text-center text-muted-foreground p-8">{t('familyPayments.noPayouts')}</div>
             )}
         </CardContent>
       </Card>
 
        <Card>
         <CardHeader>
-          <CardTitle>Manage Family Members</CardTitle>
-          <CardDescription>Add or edit family member details.</CardDescription>
+          <CardTitle>{t('familyPayments.manageMembers')}</CardTitle>
+          <CardDescription>{t('familyPayments.manageMembersDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Member Name</TableHead>
-                <TableHead className="text-right">Expected Payout</TableHead>
-                <TableHead><span className="sr-only">Actions</span></TableHead>
+                <TableHead>{t('familyPayments.memberName')}</TableHead>
+                <TableHead className="text-right">{t('familyPayments.expectedPayout')}</TableHead>
+                <TableHead><span className="sr-only">{t('common.actions')}</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -419,13 +421,13 @@ export default function FamilyPaymentsPage() {
                       <DropdownMenuTrigger asChild>
                         <Button aria-haspopup="true" size="icon" variant="ghost">
                           <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
+                          <span className="sr-only">{t('common.toggleMenu')}</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => openMemberDialog(member)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setItemToDelete({type: 'member', id: member.id})} className="text-red-600">Delete</DropdownMenuItem>
+                        <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
+                        <DropdownMenuItem onSelect={() => openMemberDialog(member)}>{t('common.edit')}</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setItemToDelete({type: 'member', id: member.id})} className="text-red-600">{t('common.delete')}</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -434,7 +436,7 @@ export default function FamilyPaymentsPage() {
             </TableBody>
             <TableFooter>
                 <TableRow>
-                    <TableCell className="font-bold">Total</TableCell>
+                    <TableCell className="font-bold">{t('common.total')}</TableCell>
                     <TableCell className="text-right font-bold">৳{totalExpectedPayout.toLocaleString()}</TableCell>
                     <TableCell></TableCell>
                 </TableRow>
@@ -448,19 +450,19 @@ export default function FamilyPaymentsPage() {
           <DialogContent>
             <form onSubmit={handlePayoutSubmit}>
               <DialogHeader>
-                <DialogTitle>{editingPayout ? "Edit Payout" : "Add Payout"}</DialogTitle>
+                <DialogTitle>{editingPayout ? t('familyPayments.dialogEditPayoutTitle') : t('familyPayments.dialogAddPayoutTitle')}</DialogTitle>
                 <DialogDescription>
-                  {editingPayout ? "Update the details of this payout." : "Record a new payment made to a family member."}
+                  {editingPayout ? t('familyPayments.dialogEditPayoutDesc') : t('familyPayments.dialogAddPayoutDesc')}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                   <Label htmlFor="name" className="sm:text-right">
-                    Member
+                    {t('familyPayments.member')}
                   </Label>
                   <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
                     <SelectTrigger className="sm:col-span-3">
-                      <SelectValue placeholder="Select a member" />
+                      <SelectValue placeholder={t('familyPayments.selectMember')} />
                     </SelectTrigger>
                     <SelectContent>
                       {familyMembers.map((member) => (
@@ -473,19 +475,19 @@ export default function FamilyPaymentsPage() {
                 </div>
                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                   <Label htmlFor="amount" className="sm:text-right">
-                    Amount Paid
+                    {t('familyPayments.amountPaid')}
                   </Label>
                   <Input id="amount" type="number" className="sm:col-span-3" value={payoutAmount} onChange={(e) => setPayoutAmount(e.target.value)} />
                 </div>
                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                   <Label htmlFor="details" className="sm:text-right">
-                    Details (Optional)
+                    {t('familyPayments.detailsOptional')}
                   </Label>
                   <Input id="details" className="sm:col-span-3" value={payoutDetails} onChange={(e) => setPayoutDetails(e.target.value)} />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>Save Payout</Button>
+                <Button type="submit" loading={isSubmitting}>{t('familyPayments.savePayout')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -496,27 +498,27 @@ export default function FamilyPaymentsPage() {
             <DialogContent>
               <form onSubmit={handleMemberSubmit}>
                 <DialogHeader>
-                  <DialogTitle>{editingMember ? "Edit Member" : "Add Member"}</DialogTitle>
+                  <DialogTitle>{editingMember ? t('familyPayments.dialogEditMemberTitle') : t('familyPayments.dialogAddMemberTitle')}</DialogTitle>
                   <DialogDescription>
-                    {editingMember ? "Update the details for this family member." : "Add a new family member."}
+                    {editingMember ? t('familyPayments.dialogEditMemberDesc') : t('familyPayments.dialogAddMemberDesc')}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                     <Label htmlFor="member-name" className="sm:text-right">
-                      Name
+                      {t('common.name')}
                     </Label>
                     <Input id="member-name" className="sm:col-span-3" value={memberName} onChange={(e) => setMemberName(e.target.value)} />
                   </div>
                   <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                     <Label htmlFor="member-expected" className="sm:text-right">
-                      Expected Payout
+                      {t('familyPayments.expectedPayout')}
                     </Label>
                     <Input id="member-expected" type="number" className="sm:col-span-3" value={memberExpected} onChange={(e) => setMemberExpected(e.target.value)} />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" loading={isSubmitting}>Save Member</Button>
+                  <Button type="submit" loading={isSubmitting}>{t('familyPayments.saveMember')}</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -526,15 +528,15 @@ export default function FamilyPaymentsPage() {
         <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
                     <AlertDialogDescription>
                       {getDeleteItemDescription()}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDelete} disabled={isSubmitting}>
-                    {isSubmitting ? 'Deleting...' : 'Continue'}
+                    {isSubmitting ? t('common.deleting') : t('common.continue')}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

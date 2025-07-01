@@ -2,6 +2,7 @@
 "use client"
 import * as React from "react"
 import { format } from "date-fns"
+import { bn as bnLocale } from "date-fns/locale/bn"
 import { Calendar as CalendarIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -12,8 +13,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { useLanguage } from "@/contexts/language-context"
 
 export function DatePicker({ date, setDate, className }: { date?: Date, setDate: (date?: Date) => void, className?: string }) {
+  const { language, t } = useLanguage()
   const [isOpen, setIsOpen] = React.useState(false);
 
   const handleSelect = (selectedDate?: Date) => {
@@ -33,7 +36,7 @@ export function DatePicker({ date, setDate, className }: { date?: Date, setDate:
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "MMMM yyyy") : <span>Pick a month</span>}
+          {date ? format(date, "MMMM yyyy", { locale: language === 'bn' ? bnLocale : undefined }) : <span>{t('datePicker.pickMonth')}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">
@@ -46,6 +49,7 @@ export function DatePicker({ date, setDate, className }: { date?: Date, setDate:
           fromYear={2020}
           toYear={new Date().getFullYear() + 5}
           defaultMonth={date}
+          locale={language === 'bn' ? bnLocale : undefined}
         />
       </PopoverContent>
     </Popover>

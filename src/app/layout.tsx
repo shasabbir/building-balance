@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppLayout } from '@/components/app-layout';
@@ -6,6 +7,7 @@ import { DateProvider } from '@/contexts/date-context';
 import { DataProvider } from '@/contexts/data-context';
 import { ThemeProvider } from '@/components/theme-provider';
 import { PinAuth } from '@/components/pin-auth';
+import { LanguageProvider } from '@/contexts/language-context';
 
 export const metadata: Metadata = {
   title: 'Building Balance',
@@ -32,6 +34,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <LanguageProvider>
             <PinAuth>
               <DateProvider>
                 <DataProvider>
@@ -41,6 +44,7 @@ export default function RootLayout({
                 </DataProvider>
               </DateProvider>
             </PinAuth>
+          </LanguageProvider>
           <Toaster />
         </ThemeProvider>
       </body>

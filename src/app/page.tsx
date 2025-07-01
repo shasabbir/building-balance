@@ -16,7 +16,9 @@ import { PageHeader } from '@/components/page-header'
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
+import { useLanguage } from "@/contexts/language-context"
 import { isSameMonth, subMonths, lastDayOfMonth, isBefore, startOfMonth, addMonths, format } from 'date-fns'
+import { bn as bnLocale } from 'date-fns/locale/bn'
 import type { Renter, RentPayment, FamilyMember, Payout, UtilityBill, Expense, Room } from "@/lib/types"
 import { getEffectiveValue, findRoomForRenter, findOccupantForRoom } from "@/lib/utils"
 
@@ -149,6 +151,7 @@ const calculateAllTimeSummary = (
 export default function Dashboard() {
   const { selectedDate } = useDate()
   const { renters, rentPayments, familyMembers, payouts, utilityBills, otherExpenses, rooms, initiationDate } = useData()
+  const { language, t } = useLanguage()
 
   const previousMonth = subMonths(selectedDate, 1)
 
@@ -162,87 +165,87 @@ export default function Dashboard() {
 
   const recentActivities = React.useMemo(() => {
     const activities = [
-        ...rentPayments.filter(p => isSameMonth(new Date(p.date), selectedDate)).map(p => ({ type: 'Rent', description: `${p.renterName} Paid`, amount: p.amount, date: p.date, status: 'collected' as const })),
-        ...payouts.filter(p => isSameMonth(new Date(p.date), selectedDate)).map(p => ({ type: 'Payout', description: `Paid to ${p.familyMemberName}`, amount: p.amount, date: p.date, status: 'paid' as const })),
-        ...utilityBills.filter(b => isSameMonth(new Date(b.date), selectedDate)).map(b => ({ type: 'Bill', description: `${b.type} Bill`, amount: b.amount, date: b.date, status: 'paid' as const })),
+        ...rentPayments.filter(p => isSameMonth(new Date(p.date), selectedDate)).map(p => ({ type: 'Rent', description: t('dashboard.rentPaid', { name: p.renterName }), amount: p.amount, date: p.date, status: 'collected' as const })),
+        ...payouts.filter(p => isSameMonth(new Date(p.date), selectedDate)).map(p => ({ type: 'Payout', description: t('dashboard.payoutPaid', { name: p.familyMemberName }), amount: p.amount, date: p.date, status: 'paid' as const })),
+        ...utilityBills.filter(b => isSameMonth(new Date(b.date), selectedDate)).map(b => ({ type: 'Bill', description: t('dashboard.billPaid', { type: b.type }), amount: b.amount, date: b.date, status: 'paid' as const })),
         ...otherExpenses.filter(e => isSameMonth(new Date(e.date), selectedDate)).map(e => ({ type: 'Expense', description: e.details, amount: e.amount, date: e.date, status: 'paid' as const }))
     ];
     return activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 10);
-  }, [rentPayments, payouts, utilityBills, otherExpenses, selectedDate]);
+  }, [rentPayments, payouts, utilityBills, otherExpenses, selectedDate, t]);
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Dashboard" />
+      <PageHeader title={t('nav.dashboard')} />
       
       <Tabs defaultValue="monthly" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:w-auto md:max-w-xs">
-          <TabsTrigger value="monthly">This Month</TabsTrigger>
-          <TabsTrigger value="all-time">All Time</TabsTrigger>
+          <TabsTrigger value="monthly">{t('dashboard.thisMonth')}</TabsTrigger>
+          <TabsTrigger value="all-time">{t('dashboard.allTime')}</TabsTrigger>
         </TabsList>
         <TabsContent value="monthly" className="space-y-4 pt-4">
             <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Carry Over</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('dashboard.carryOver')}</CardTitle>
                   <Repeat className={`h-4 w-4 ${carryOver >= 0 ? "text-muted-foreground" : "text-red-500"}`} />
                 </CardHeader>
                 <CardContent>
                   <div className={`text-2xl font-bold ${carryOver < 0 && "text-red-600 dark:text-red-400"}`}>৳{carryOver.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">From last month</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.fromLastMonth')}</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Rent Collected</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('dashboard.rentCollected')}</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">৳{currentMonthSummary.rent.collected.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">Expected: ৳{currentMonthSummary.rent.expected.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.expected', { amount: currentMonthSummary.rent.expected.toLocaleString() })}</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Payouts</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('dashboard.totalPayouts')}</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">৳{currentMonthSummary.payouts.paid.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">Expected: ৳{currentMonthSummary.payouts.expected.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.expected', { amount: currentMonthSummary.payouts.expected.toLocaleString() })}</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Bills & Expenses</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('dashboard.billsAndExpenses')}</CardTitle>
                   <Receipt className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">৳{(currentMonthSummary.bills + currentMonthSummary.expenses).toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">Bills: ৳{currentMonthSummary.bills.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.bills', { amount: currentMonthSummary.bills.toLocaleString() })}</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">This Month's Balance</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('dashboard.thisMonthsBalance')}</CardTitle>
                   <Wallet className={`h-4 w-4 ${currentMonthSummary.balance >= 0 ? "text-muted-foreground" : "text-red-500"}`} />
                 </CardHeader>
                 <CardContent>
                   <div className={`text-2xl font-bold ${currentMonthSummary.balance < 0 && "text-red-600 dark:text-red-400"}`}>
                       ৳{currentMonthSummary.balance.toLocaleString()}
                   </div>
-                  <p className="text-xs text-muted-foreground">Without carry over</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.withoutCarryOver')}</p>
                 </CardContent>
               </Card>
               <Card className={finalBalance >= 0 ? "border-green-500/50 dark:border-green-500/40" : "border-red-500/50 dark:border-red-500/40"}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Final Balance</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('dashboard.finalBalance')}</CardTitle>
                   <Wallet className={`h-4 w-4 ${finalBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />
                 </CardHeader>
                 <CardContent>
                   <div className={`text-2xl font-bold ${finalBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                     ৳{finalBalance.toLocaleString()}
                   </div>
-                  <p className="text-xs text-muted-foreground">Incl. carry over</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.inclCarryOver')}</p>
                 </CardContent>
               </Card>
             </div>
@@ -250,16 +253,16 @@ export default function Dashboard() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
               <Card className="lg:col-span-4">
                 <CardHeader>
-                  <CardTitle>Recent Activity</CardTitle>
+                  <CardTitle>{t('dashboard.recentActivity')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {recentActivities.length > 0 ? (
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="hidden sm:table-cell">Type</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead className="hidden sm:table-cell">{t('common.type')}</TableHead>
+                          <TableHead>{t('dashboard.description')}</TableHead>
+                          <TableHead className="text-right">{t('dashboard.amount')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -275,13 +278,13 @@ export default function Dashboard() {
                       </TableBody>
                     </Table>
                   ) : (
-                    <div className="text-center text-muted-foreground p-8">No activity this month.</div>
+                    <div className="text-center text-muted-foreground p-8">{t('dashboard.noActivity')}</div>
                   )}
                 </CardContent>
               </Card>
               <Card className="lg:col-span-3">
                 <CardHeader>
-                  <CardTitle>Financial Summary</CardTitle>
+                  <CardTitle>{t('dashboard.financialSummary')}</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-6">
                   <div className="flex items-center gap-4">
@@ -289,7 +292,7 @@ export default function Dashboard() {
                       <TrendingUp className="h-6 w-6 text-green-500" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Income</p>
+                      <p className="text-sm text-muted-foreground">{t('dashboard.totalIncome')}</p>
                       <p className="text-lg font-bold">৳{currentMonthSummary.totalIncome.toLocaleString()}</p>
                     </div>
                   </div>
@@ -298,7 +301,7 @@ export default function Dashboard() {
                       <TrendingDown className="h-6 w-6 text-red-500" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Total Outgoing</p>
+                      <p className="text-sm text-muted-foreground">{t('dashboard.totalOutgoing')}</p>
                       <p className="text-lg font-bold">৳{currentMonthSummary.totalOutgoing.toLocaleString()}</p>
                     </div>
                   </div>
@@ -307,7 +310,7 @@ export default function Dashboard() {
                       <Home className="h-6 w-6 text-yellow-500" />
                       </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Rent Payable</p>
+                      <p className="text-sm text-muted-foreground">{t('dashboard.rentPayable')}</p>
                       <p className="text-lg font-bold">৳{currentMonthSummary.rent.payable.toLocaleString()}</p>
                     </div>
                   </div>
@@ -316,7 +319,7 @@ export default function Dashboard() {
                       <Users className="h-6 w-6 text-blue-500" />
                       </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Family Payouts Payable</p>
+                      <p className="text-sm text-muted-foreground">{t('dashboard.familyPayoutsPayable')}</p>
                       <p className="text-lg font-bold">৳{currentMonthSummary.payouts.payable.toLocaleString()}</p>
                     </div>
                   </div>
@@ -328,53 +331,53 @@ export default function Dashboard() {
            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Rent Collected</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('dashboard.totalRentCollected')}</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">৳{allTimeSummary.rent.collected.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">Expected: ৳{allTimeSummary.rent.expected.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.expected', { amount: allTimeSummary.rent.expected.toLocaleString() })}</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Payouts Paid</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('dashboard.totalPayoutsPaid')}</CardTitle>
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">৳{allTimeSummary.payouts.paid.toLocaleString()}</div>
-                  <p className="text-xs text-muted-foreground">Expected: ৳{allTimeSummary.payouts.expected.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.expected', { amount: allTimeSummary.payouts.expected.toLocaleString() })}</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Bills & Expenses</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('dashboard.totalBillsAndExpenses')}</CardTitle>
                   <Receipt className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">৳{(allTimeSummary.billsPaid + allTimeSummary.expensesPaid).toLocaleString()}</div>
 
-                  <p className="text-xs text-muted-foreground">Utilities and other expenses</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.utilitiesAndOther')}</p>
                 </CardContent>
               </Card>
               <Card className={allTimeSummary.balance >= 0 ? "border-green-500/50 dark:border-green-500/40" : "border-red-500/50 dark:border-red-500/40"}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Overall Final Balance</CardTitle>
+                  <CardTitle className="text-sm font-medium">{t('dashboard.overallFinalBalance')}</CardTitle>
                   <Wallet className={`h-4 w-4 ${allTimeSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`} />
                 </CardHeader>
                 <CardContent>
                   <div className={`text-2xl font-bold ${allTimeSummary.balance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                     ৳{allTimeSummary.balance.toLocaleString()}
                   </div>
-                  <p className="text-xs text-muted-foreground">Total income minus total outgoing</p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.totalIncomeMinusOutgoing')}</p>
                 </CardContent>
               </Card>
            </div>
            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <Card className="lg:col-span-7">
                     <CardHeader>
-                        <CardTitle>All-Time Financial Summary</CardTitle>
-                        <CardDescription>From {format(initiationDate, "MMM yyyy")} until this month</CardDescription>
+                        <CardTitle>{t('dashboard.allTimeFinancialSummary')}</CardTitle>
+                        <CardDescription>{t('dashboard.fromTo', { start: format(initiationDate, "MMM yyyy", { locale: language === 'bn' ? bnLocale : undefined})})}</CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                       <div className="flex items-center gap-4">
@@ -382,7 +385,7 @@ export default function Dashboard() {
                           <TrendingUp className="h-6 w-6 text-green-500" />
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Total Income</p>
+                          <p className="text-sm text-muted-foreground">{t('dashboard.totalIncome')}</p>
                           <p className="text-lg font-bold">৳{allTimeSummary.totalIncome.toLocaleString()}</p>
                         </div>
                       </div>
@@ -391,7 +394,7 @@ export default function Dashboard() {
                           <TrendingDown className="h-6 w-6 text-red-500" />
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Total Outgoing</p>
+                          <p className="text-sm text-muted-foreground">{t('dashboard.totalOutgoing')}</p>
                           <p className="text-lg font-bold">৳{allTimeSummary.totalOutgoing.toLocaleString()}</p>
                         </div>
                       </div>
@@ -400,7 +403,7 @@ export default function Dashboard() {
                           <Home className="h-6 w-6 text-yellow-500" />
                           </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Total Rent Payable</p>
+                          <p className="text-sm text-muted-foreground">{t('dashboard.totalRentPayable')}</p>
                           <p className="text-lg font-bold">৳{allTimeSummary.rent.payable.toLocaleString()}</p>
                         </div>
                       </div>
@@ -409,7 +412,7 @@ export default function Dashboard() {
                           <Users className="h-6 w-6 text-blue-500" />
                           </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">Total Family Payouts Payable</p>
+                          <p className="text-sm text-muted-foreground">{t('dashboard.totalFamilyPayoutsPayable')}</p>
                           <p className="text-lg font-bold">৳{allTimeSummary.payouts.payable.toLocaleString()}</p>
                         </div>
                       </div>

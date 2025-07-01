@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from 'react'
@@ -13,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { api } from '@/services/api'
 import { useToast } from '@/hooks/use-toast'
+import { useLanguage } from '@/contexts/language-context'
 
 export function PinAuth({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false)
@@ -20,6 +22,7 @@ export function PinAuth({ children }: { children: React.ReactNode }) {
   const [pin, setPin] = React.useState('')
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const { toast } = useToast()
+  const { t } = useLanguage()
 
   React.useEffect(() => {
     try {
@@ -39,8 +42,8 @@ export function PinAuth({ children }: { children: React.ReactNode }) {
     if (pin.length !== 6) {
         toast({
             variant: "destructive",
-            title: "Invalid PIN",
-            description: "PIN must be 6 digits long.",
+            title: t('pinAuth.invalidPinTitle'),
+            description: t('pinAuth.invalidPinDescription'),
         })
         return
     }
@@ -53,8 +56,8 @@ export function PinAuth({ children }: { children: React.ReactNode }) {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Authentication Failed",
-        description: "The PIN you entered is incorrect.",
+        title: t('pinAuth.authFailedTitle'),
+        description: t('pinAuth.authFailedDescription'),
       })
       setPin('')
     } finally {
@@ -80,9 +83,9 @@ export function PinAuth({ children }: { children: React.ReactNode }) {
     >
         <form onSubmit={handlePinSubmit}>
             <DialogHeader>
-            <DialogTitle>Enter PIN Code</DialogTitle>
+            <DialogTitle>{t('pinAuth.title')}</DialogTitle>
             <DialogDescription>
-                Please enter the 6-digit PIN to access the application.
+                {t('pinAuth.description')}
             </DialogDescription>
             </DialogHeader>
             <div className="py-8">
@@ -98,7 +101,7 @@ export function PinAuth({ children }: { children: React.ReactNode }) {
             </div>
             <DialogFooter>
             <Button type="submit" loading={isSubmitting} className="w-full">
-                Unlock
+                {t('pinAuth.unlockButton')}
             </Button>
             </DialogFooter>
         </form>

@@ -53,12 +53,14 @@ import type { Expense } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
+import { useLanguage } from "@/contexts/language-context"
 import { isSameMonth, lastDayOfMonth } from "date-fns"
 
 
 export default function OtherExpensesPage() {
   const { otherExpenses, addExpense, updateExpense, deleteExpense } = useData()
   const { selectedDate } = useDate()
+  const { t } = useLanguage()
 
   const [isDialogOpen, setIsDialogOpen] = React.useState(false)
   const [editingExpense, setEditingExpense] = React.useState<Expense | null>(null)
@@ -143,28 +145,28 @@ export default function OtherExpensesPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Other Expenses">
+      <PageHeader title={t('otherExpenses.title')}>
         <Button size="sm" className="gap-1" onClick={() => openDialog(null)}>
             <PlusCircle className="h-4 w-4" />
-            Add Expense
+            {t('otherExpenses.addExpense')}
         </Button>
       </PageHeader>
       <Card>
         <CardHeader>
-            <CardTitle>Expense Log</CardTitle>
-            <CardDescription>A list of all miscellaneous expenses for this month.</CardDescription>
+            <CardTitle>{t('otherExpenses.expenseLog')}</CardTitle>
+            <CardDescription>{t('otherExpenses.expenseLogDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           {monthlyExpenses.length > 0 ? (
             <Table>
                 <TableHeader>
                 <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="hidden sm:table-cell">Details</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>{t('common.date')}</TableHead>
+                    <TableHead>{t('common.category')}</TableHead>
+                    <TableHead className="hidden sm:table-cell">{t('common.details')}</TableHead>
+                    <TableHead className="text-right">{t('common.amount')}</TableHead>
                     <TableHead>
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t('common.actions')}</span>
                     </TableHead>
                 </TableRow>
                 </TableHeader>
@@ -173,7 +175,7 @@ export default function OtherExpensesPage() {
                     <TableRow key={expense.id}>
                     <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
                     <TableCell>
-                        <Badge variant="outline">{expense.category}</Badge>
+                        <Badge variant="outline">{t(`otherExpenses.category${expense.category}`)}</Badge>
                     </TableCell>
                     <TableCell className="font-medium hidden sm:table-cell">{expense.details}</TableCell>
                     <TableCell className="text-right">৳{expense.amount.toLocaleString()}</TableCell>
@@ -182,13 +184,13 @@ export default function OtherExpensesPage() {
                         <DropdownMenuTrigger asChild>
                             <Button aria-haspopup="true" size="icon" variant="ghost">
                             <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Toggle menu</span>
+                            <span className="sr-only">{t('common.toggleMenu')}</span>
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem onSelect={() => openDialog(expense)}>Edit</DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setExpenseToDelete(expense)} className="text-red-600">Delete</DropdownMenuItem>
+                            <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
+                            <DropdownMenuItem onSelect={() => openDialog(expense)}>{t('common.edit')}</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setExpenseToDelete(expense)} className="text-red-600">{t('common.delete')}</DropdownMenuItem>
                         </DropdownMenuContent>
                         </DropdownMenu>
                     </TableCell>
@@ -197,14 +199,14 @@ export default function OtherExpensesPage() {
                 </TableBody>
                 <TableFooter>
                     <TableRow>
-                        <TableCell colSpan={3} className="font-bold">Total</TableCell>
+                        <TableCell colSpan={3} className="font-bold">{t('common.total')}</TableCell>
                         <TableCell className="text-right font-bold">৳{totalExpenses.toLocaleString()}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
                 </TableFooter>
             </Table>
           ) : (
-            <div className="text-center text-muted-foreground p-8">No expenses this month.</div>
+            <div className="text-center text-muted-foreground p-8">{t('otherExpenses.noExpenses')}</div>
           )}
         </CardContent>
       </Card>
@@ -214,42 +216,42 @@ export default function OtherExpensesPage() {
           <DialogContent>
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle>{editingExpense ? "Edit Expense" : "Add Expense"}</DialogTitle>
+                <DialogTitle>{editingExpense ? t('otherExpenses.dialogEditTitle') : t('otherExpenses.dialogAddTitle')}</DialogTitle>
                 <DialogDescription>
-                  {editingExpense ? "Update the details of this expense." : "Record a new household, maintenance, or other expense."}
+                  {editingExpense ? t('otherExpenses.dialogEditDesc') : t('otherExpenses.dialogAddDesc')}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                   <Label htmlFor="category" className="sm:text-right">
-                    Category
+                    {t('common.category')}
                   </Label>
                   <Select value={category} onValueChange={(value) => setCategory(value as Expense['category'])}>
                     <SelectTrigger className="sm:col-span-3">
-                      <SelectValue placeholder="Select a category" />
+                      <SelectValue placeholder={t('otherExpenses.selectCategory')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="household">Household</SelectItem>
-                      <SelectItem value="maintenance">Maintenance</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="household">{t('otherExpenses.categoryHousehold')}</SelectItem>
+                      <SelectItem value="maintenance">{t('otherExpenses.categoryMaintenance')}</SelectItem>
+                      <SelectItem value="other">{t('otherExpenses.categoryOther')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                   <Label htmlFor="amount" className="sm:text-right">
-                    Amount
+                    {t('common.amount')}
                   </Label>
                   <Input id="amount" type="number" className="sm:col-span-3" value={amount} onChange={(e) => setAmount(e.target.value)} />
                 </div>
                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                   <Label htmlFor="details" className="sm:text-right">
-                    Details
+                    {t('common.details')}
                   </Label>
                   <Input id="details" className="sm:col-span-3" value={details} onChange={(e) => setDetails(e.target.value)} />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>Save Expense</Button>
+                <Button type="submit" loading={isSubmitting}>{t('otherExpenses.saveExpense')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -259,15 +261,15 @@ export default function OtherExpensesPage() {
         <AlertDialog open={!!expenseToDelete} onOpenChange={() => setExpenseToDelete(null)}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
                     <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the expense record.
+                      {t('otherExpenses.deleteDesc')}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                     <AlertDialogAction onClick={() => expenseToDelete && handleDelete(expenseToDelete)} disabled={isSubmitting}>
-                      {isSubmitting ? 'Deleting...' : 'Continue'}
+                      {isSubmitting ? t('common.deleting') : t('common.continue')}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

@@ -54,6 +54,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
+import { useLanguage } from "@/contexts/language-context"
 import { isSameMonth, lastDayOfMonth, isAfter, isBefore, startOfMonth, subMonths, startOfDay } from "date-fns"
 import { getEffectiveValue, findRoomForRenter, findOccupantForRoom } from "@/lib/utils"
 
@@ -62,6 +63,7 @@ export default function RentTenantsPage() {
   const { toast } = useToast()
   const { renters, rentPayments, rooms, addRenter, updateRenter, archiveRenter, addRoom, updateRoom, deleteRoom, addRentPayment, updateRentPayment, deleteRentPayment } = useData()
   const { selectedDate } = useDate()
+  const { t } = useLanguage()
   
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
@@ -127,9 +129,10 @@ export default function RentTenantsPage() {
           if (occupant && occupant.id !== editingRenter?.id) {
               toast({
                   variant: "destructive",
-                  title: "Room Occupied",
-                  description: `Room ${getRoomNumber(newRoomId)} is already occupied by ${occupant.name}. Please assign them to a different room first.`,
+                  title: t('rentAndTenants.roomOccupiedError'),
+                  description: t('rentAndTenants.roomOccupiedErrorDesc', { roomNumber: getRoomNumber(newRoomId), name: occupant.name }),
               });
+              setIsSubmitting(false);
               return;
           }
       }
@@ -305,9 +308,11 @@ export default function RentTenantsPage() {
         if (isOccupied) {
           toast({
             variant: "destructive",
-            title: "Cannot Delete Room",
-            description: "This room is currently occupied by a renter.",
+            title: t('rentAndTenants.cannotDeleteRoomError'),
+            description: t('rentAndTenants.cannotDeleteRoomErrorDesc'),
           })
+          setIsSubmitting(false);
+          setItemToDelete(null);
           return
         }
         await deleteRoom(itemToDelete.id)
@@ -324,11 +329,11 @@ export default function RentTenantsPage() {
     if (!itemToDelete) return ""
     switch (itemToDelete.type) {
         case 'payment':
-            return "This will permanently delete the rent payment record. This action cannot be undone."
+            return t('rentAndTenants.deletePaymentDesc')
         case 'room':
-            return "This will permanently delete the room. This action cannot be undone."
+            return t('rentAndTenants.deleteRoomDesc')
         default:
-            return "This action cannot be undone."
+            return ""
     }
   }
   
@@ -430,47 +435,47 @@ export default function RentTenantsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Rent & Tenants">
+      <PageHeader title={t('rentAndTenants.title')}>
         <div className="flex gap-2">
             <Button size="sm" className="gap-1" onClick={() => openRoomDialog(null)}>
               <PlusCircle className="h-4 w-4" />
-              Add Room
+              {t('rentAndTenants.addRoom')}
             </Button>
            <Button size="sm" className="gap-1" onClick={() => openRenterDialog(null)}>
               <PlusCircle className="h-4 w-4" />
-              Add Renter
+              {t('rentAndTenants.addRenter')}
             </Button>
             <Button size="sm" className="gap-1" onClick={() => openPaymentDialog(null)}>
               <PlusCircle className="h-4 w-4" />
-              Add Rent Payment
+              {t('rentAndTenants.addRentPayment')}
             </Button>
         </div>
       </PageHeader>
       
       <Card>
         <CardHeader>
-          <CardTitle>Rent Collection Status by Room</CardTitle>
+          <CardTitle>{t('rentAndTenants.statusByRoom')}</CardTitle>
           <CardDescription>
-            Monthly rent status based on room occupancy for the selected month.
+            {t('rentAndTenants.statusByRoomDesc')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Room</TableHead>
-                <TableHead>Renter</TableHead>
-                <TableHead className="text-right">Rent Due</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
-                <TableHead className="text-right"><span className="hidden md:inline">This Month </span>Payable</TableHead>
-                <TableHead className="text-right hidden md:table-cell">Total Payable (All Time)</TableHead>
+                <TableHead>{t('common.room')}</TableHead>
+                <TableHead>{t('common.renter')}</TableHead>
+                <TableHead className="text-right">{t('rentAndTenants.rentDue')}</TableHead>
+                <TableHead className="text-right">{t('common.paid')}</TableHead>
+                <TableHead className="text-right"><span className="hidden md:inline">{t('common.thisMonth')} </span>{t('common.payable')}</TableHead>
+                <TableHead className="text-right hidden md:table-cell">{t('familyPayments.totalPayableAllTime')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {rentStatusSummary.map(({ room, occupant, rentDue, rentPaidThisMonth, payableThisMonth }) => (
                 <TableRow key={room?.id || occupant?.id}>
-                  <TableCell><Badge variant="secondary">{room ? room.number : "Unassigned"}</Badge></TableCell>
-                  <TableCell className="font-medium">{occupant ? occupant.name : <span className="text-muted-foreground">Vacant</span>}</TableCell>
+                  <TableCell><Badge variant="secondary">{room ? room.number : t('rentAndTenants.unassigned')}</Badge></TableCell>
+                  <TableCell className="font-medium">{occupant ? occupant.name : <span className="text-muted-foreground">{t('rentAndTenants.vacant')}</span>}</TableCell>
                   {occupant ? (
                     <>
                       <TableCell className="text-right">৳{rentDue?.toLocaleString()}</TableCell>
@@ -485,14 +490,14 @@ export default function RentTenantsPage() {
                       <TableCell className="text-right font-semibold hidden md:table-cell">৳{occupant.cumulativePayable.toLocaleString()}</TableCell>
                     </>
                   ) : (
-                    <TableCell colSpan={4} className="text-center text-muted-foreground">Vacant</TableCell>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground">{t('rentAndTenants.vacant')}</TableCell>
                   )}
                 </TableRow>
               ))}
             </TableBody>
             <TableFooter>
                 <TableRow>
-                    <TableCell colSpan={2} className="font-bold">Total</TableCell>
+                    <TableCell colSpan={2} className="font-bold">{t('common.total')}</TableCell>
                     <TableCell className="text-right font-bold">৳{rentStatusTotals.rentDue.toLocaleString()}</TableCell>
                     <TableCell className="text-right font-bold">৳{rentStatusTotals.rentPaidThisMonth.toLocaleString()}</TableCell>
                     <TableCell className="text-right font-bold">৳{rentStatusTotals.payableThisMonth.toLocaleString()}</TableCell>
@@ -505,19 +510,19 @@ export default function RentTenantsPage() {
       
       <Card>
         <CardHeader>
-            <CardTitle>Rent Payment History for this Month</CardTitle>
-            <CardDescription>Full list of all rent payments received this month.</CardDescription>
+            <CardTitle>{t('rentAndTenants.paymentHistory')}</CardTitle>
+            <CardDescription>{t('rentAndTenants.paymentHistoryDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
             {monthlyRentPayments.length > 0 ? (
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead className="hidden sm:table-cell">Room</TableHead>
-                            <TableHead>Renter</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                            <TableHead><span className="sr-only">Actions</span></TableHead>
+                            <TableHead>{t('common.date')}</TableHead>
+                            <TableHead className="hidden sm:table-cell">{t('common.room')}</TableHead>
+                            <TableHead>{t('common.renter')}</TableHead>
+                            <TableHead className="text-right">{t('common.amount')}</TableHead>
+                            <TableHead><span className="sr-only">{t('common.actions')}</span></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -532,13 +537,13 @@ export default function RentTenantsPage() {
                                         <DropdownMenuTrigger asChild>
                                             <Button aria-haspopup="true" size="icon" variant="ghost">
                                             <MoreHorizontal className="h-4 w-4" />
-                                            <span className="sr-only">Toggle menu</span>
+                                            <span className="sr-only">{t('common.toggleMenu')}</span>
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onSelect={() => openPaymentDialog(payment)}>Edit</DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setItemToDelete({type: 'payment', id: payment.id})} className="text-red-600">Delete</DropdownMenuItem>
+                                            <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
+                                            <DropdownMenuItem onSelect={() => openPaymentDialog(payment)}>{t('common.edit')}</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setItemToDelete({type: 'payment', id: payment.id})} className="text-red-600">{t('common.delete')}</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -547,34 +552,34 @@ export default function RentTenantsPage() {
                     </TableBody>
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={3} className="font-bold">Total</TableCell>
+                            <TableCell colSpan={3} className="font-bold">{t('common.total')}</TableCell>
                             <TableCell className="text-right font-bold">৳{totalMonthlyRentPayments.toLocaleString()}</TableCell>
                             <TableCell></TableCell>
                         </TableRow>
                     </TableFooter>
                 </Table>
             ) : (
-                <div className="text-center text-muted-foreground p-8">No rent payments this month.</div>
+                <div className="text-center text-muted-foreground p-8">{t('rentAndTenants.noRentPayments')}</div>
             )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Manage Rooms & Renters</CardTitle>
+          <CardTitle>{t('rentAndTenants.manageRoomsAndRenters')}</CardTitle>
           <CardDescription>
-            Manage rooms and see applicable rent and occupant details for the selected month.
+            {t('rentAndTenants.manageRoomsAndRentersDesc')}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-8">
            <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Room Number</TableHead>
-                <TableHead>Occupant</TableHead>
-                <TableHead className="text-right">Rent for Month</TableHead>
+                <TableHead>{t('rentAndTenants.roomNumber')}</TableHead>
+                <TableHead>{t('rentAndTenants.occupant')}</TableHead>
+                <TableHead className="text-right">{t('rentAndTenants.rentForMonth')}</TableHead>
                 <TableHead>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t('common.actions')}</span>
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -585,20 +590,20 @@ export default function RentTenantsPage() {
                 return (
                     <TableRow key={room.id}>
                         <TableCell className="font-medium">{room.number}</TableCell>
-                        <TableCell>{occupant ? occupant.name : <span className="text-muted-foreground">Vacant</span>}</TableCell>
+                        <TableCell>{occupant ? occupant.name : <span className="text-muted-foreground">{t('rentAndTenants.vacant')}</span>}</TableCell>
                         <TableCell className="text-right">৳{applicableRent.toLocaleString()}</TableCell>
                         <TableCell>
                             <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button aria-haspopup="true" size="icon" variant="ghost">
                                 <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Toggle menu</span>
+                                <span className="sr-only">{t('common.toggleMenu')}</span>
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem onSelect={() => openRoomDialog(room)}>Edit Room</DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => setItemToDelete({type: 'room', id: room.id})} className="text-red-600">Delete Room</DropdownMenuItem>
+                                <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
+                                <DropdownMenuItem onSelect={() => openRoomDialog(room)}>{t('rentAndTenants.editRoom')}</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setItemToDelete({type: 'room', id: room.id})} className="text-red-600">{t('rentAndTenants.deleteRoom')}</DropdownMenuItem>
                             </DropdownMenuContent>
                             </DropdownMenu>
                         </TableCell>
@@ -607,7 +612,7 @@ export default function RentTenantsPage() {
             </TableBody>
             <TableFooter>
                 <TableRow>
-                    <TableCell colSpan={2} className="font-bold">Total</TableCell>
+                    <TableCell colSpan={2} className="font-bold">{t('common.total')}</TableCell>
                     <TableCell className="text-right font-bold">৳{totalApplicableRent.toLocaleString()}</TableCell>
                     <TableCell></TableCell>
                 </TableRow>
@@ -615,13 +620,13 @@ export default function RentTenantsPage() {
           </Table>
 
           <div>
-             <h3 className="text-lg font-semibold mb-2">Active Renters</h3>
+             <h3 className="text-lg font-semibold mb-2">{t('rentAndTenants.activeRenters')}</h3>
              <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Renter</TableHead>
-                        <TableHead>Current Room</TableHead>
-                        <TableHead><span className="sr-only">Actions</span></TableHead>
+                        <TableHead>{t('common.renter')}</TableHead>
+                        <TableHead>{t('rentAndTenants.currentRoom')}</TableHead>
+                        <TableHead><span className="sr-only">{t('common.actions')}</span></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -630,19 +635,19 @@ export default function RentTenantsPage() {
                         return (
                             <TableRow key={renter.id}>
                                 <TableCell className="font-medium">{renter.name}</TableCell>
-                                <TableCell>{currentRoomId ? getRoomNumber(currentRoomId) : <span className="text-muted-foreground">Unassigned</span>}</TableCell>
+                                <TableCell>{currentRoomId ? getRoomNumber(currentRoomId) : <span className="text-muted-foreground">{t('rentAndTenants.unassigned')}</span>}</TableCell>
                                 <TableCell>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button aria-haspopup="true" size="icon" variant="ghost">
                                             <MoreHorizontal className="h-4 w-4" />
-                                            <span className="sr-only">Toggle menu</span>
+                                            <span className="sr-only">{t('common.toggleMenu')}</span>
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onSelect={() => openRenterDialog(renter)}>Edit Renter</DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => setItemToArchive(renter)} className="text-red-600">Archive Renter</DropdownMenuItem>
+                                            <DropdownMenuLabel>{t('common.actions')}</DropdownMenuLabel>
+                                            <DropdownMenuItem onSelect={() => openRenterDialog(renter)}>{t('rentAndTenants.editRenter')}</DropdownMenuItem>
+                                            <DropdownMenuItem onSelect={() => setItemToArchive(renter)} className="text-red-600">{t('rentAndTenants.archiveRenter')}</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -654,12 +659,12 @@ export default function RentTenantsPage() {
           </div>
 
            <div>
-             <h3 className="text-lg font-semibold mb-2">Archived Renters</h3>
+             <h3 className="text-lg font-semibold mb-2">{t('rentAndTenants.archivedRenters')}</h3>
              <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Renter</TableHead>
-                        <TableHead><span className="sr-only">Actions</span></TableHead>
+                        <TableHead>{t('common.renter')}</TableHead>
+                        <TableHead><span className="sr-only">{t('common.actions')}</span></TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -667,12 +672,12 @@ export default function RentTenantsPage() {
                         <TableRow key={renter.id}>
                             <TableCell className="font-medium text-muted-foreground">{renter.name}</TableCell>
                             <TableCell>
-                                <Button variant="outline" size="sm" onClick={() => openRenterDialog(renter)}>Reactivate</Button>
+                                <Button variant="outline" size="sm" onClick={() => openRenterDialog(renter)}>{t('rentAndTenants.reactivate')}</Button>
                             </TableCell>
                         </TableRow>
                     )) : (
                         <TableRow>
-                            <TableCell colSpan={2} className="text-center text-muted-foreground p-8">No archived renters.</TableCell>
+                            <TableCell colSpan={2} className="text-center text-muted-foreground p-8">{t('rentAndTenants.noArchivedRenters')}</TableCell>
                         </TableRow>
                     )}
                 </TableBody>
@@ -687,30 +692,30 @@ export default function RentTenantsPage() {
           <DialogContent>
             <form onSubmit={handleRenterSubmit}>
               <DialogHeader>
-                <DialogTitle>{editingRenter ? 'Edit Renter' : 'Add New Renter'}</DialogTitle>
+                <DialogTitle>{editingRenter ? t('rentAndTenants.dialogEditRenterTitle') : t('rentAndTenants.dialogAddRenterTitle')}</DialogTitle>
                 <DialogDescription>
-                  {editingRenter ? 'Update the details for this renter.' : 'Add a new renter to a room.'}
+                  {editingRenter ? t('rentAndTenants.dialogEditRenterDesc') : t('rentAndTenants.dialogAddRenterDesc')}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                  <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-                    <Label htmlFor="renter-name" className="sm:text-right">Name</Label>
+                    <Label htmlFor="renter-name" className="sm:text-right">{t('common.name')}</Label>
                     <Input id="renter-name" value={renterName} onChange={(e) => setRenterName(e.target.value)} className="sm:col-span-3" />
                 </div>
                  <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-                    <Label htmlFor="room" className="sm:text-right">Room</Label>
+                    <Label htmlFor="room" className="sm:text-right">{t('common.room')}</Label>
                     <Select value={renterRoomId ?? '_NONE_'} onValueChange={setRenterRoomId}>
                         <SelectTrigger className="sm:col-span-3">
-                            <SelectValue placeholder="Select a room" />
+                            <SelectValue placeholder={t('rentAndTenants.selectRoom')} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="_NONE_">None (Unassigned)</SelectItem>
+                            <SelectItem value="_NONE_">{t('rentAndTenants.noneUnassigned')}</SelectItem>
                             {rooms.map((room) => {
                                 const occupant = findOccupantForRoom(room.id, new Date(), renters, true);
                                 const isOccupiedByOther = occupant && occupant.id !== editingRenter?.id;
                                 return (
                                     <SelectItem key={room.id} value={room.id} disabled={isOccupiedByOther}>
-                                        {room.number} {isOccupiedByOther ? `(Occupied by ${occupant.name})` : ''}
+                                        {room.number} {isOccupiedByOther ? `(${t('rentAndTenants.occupiedBy', {name: occupant.name})})` : ''}
                                     </SelectItem>
                                 )
                             })}
@@ -719,7 +724,7 @@ export default function RentTenantsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>Save Renter</Button>
+                <Button type="submit" loading={isSubmitting}>{t('rentAndTenants.saveRenter')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -730,19 +735,19 @@ export default function RentTenantsPage() {
           <DialogContent>
             <form onSubmit={handlePaymentSubmit}>
               <DialogHeader>
-                <DialogTitle>{editingPayment ? 'Edit Rent Payment' : 'Add Rent Payment'}</DialogTitle>
+                <DialogTitle>{editingPayment ? t('rentAndTenants.dialogEditPaymentTitle') : t('rentAndTenants.dialogAddPaymentTitle')}</DialogTitle>
                 <DialogDescription>
-                  Record a new rent payment from a tenant.
+                  {t('rentAndTenants.dialogAddPaymentDesc')}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                   <Label htmlFor="tenant" className="sm:text-right">
-                    Tenant
+                    {t('rentAndTenants.tenant')}
                   </Label>
                   <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
                     <SelectTrigger className="sm:col-span-3">
-                      <SelectValue placeholder="Select a tenant" />
+                      <SelectValue placeholder={t('rentAndTenants.selectTenant')} />
                     </SelectTrigger>
                     <SelectContent>
                       {eligibleRentersForPayment.map((renter) => (
@@ -755,13 +760,13 @@ export default function RentTenantsPage() {
                 </div>
                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
                   <Label htmlFor="amount" className="sm:text-right">
-                    Amount Paid
+                    {t('familyPayments.amountPaid')}
                   </Label>
                   <Input id="amount" type="number" className="sm:col-span-3" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>Save Payment</Button>
+                <Button type="submit" loading={isSubmitting}>{t('rentAndTenants.savePayment')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -772,23 +777,23 @@ export default function RentTenantsPage() {
           <DialogContent>
             <form onSubmit={handleRoomSubmit}>
               <DialogHeader>
-                <DialogTitle>{editingRoom ? 'Edit Room' : 'Add New Room'}</DialogTitle>
+                <DialogTitle>{editingRoom ? t('rentAndTenants.dialogEditRoomTitle') : t('rentAndTenants.dialogAddRoomTitle')}</DialogTitle>
                 <DialogDescription>
-                  {editingRoom ? 'Update the details for this room.' : 'Add a new room to the building.'}
+                  {editingRoom ? t('rentAndTenants.dialogEditRoomDesc') : t('rentAndTenants.dialogAddRoomDesc')}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                  <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-                    <Label htmlFor="room-number" className="sm:text-right">Room No.</Label>
+                    <Label htmlFor="room-number" className="sm:text-right">{t('rentAndTenants.roomNumber')}</Label>
                     <Input id="room-number" value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} className="sm:col-span-3" />
                 </div>
                 <div className="grid grid-cols-1 items-start gap-2 sm:grid-cols-4 sm:items-center sm:gap-4">
-                    <Label htmlFor="rent-amount" className="sm:text-right">Rent Amount</Label>
+                    <Label htmlFor="rent-amount" className="sm:text-right">{t('common.amount')}</Label>
                     <Input id="rent-amount" type="number" value={roomRentAmount} onChange={(e) => setRoomRentAmount(e.target.value)} className="sm:col-span-3" />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>Save Room</Button>
+                <Button type="submit" loading={isSubmitting}>{t('rentAndTenants.saveRoom')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -798,15 +803,15 @@ export default function RentTenantsPage() {
        <AlertDialog open={!!itemToArchive} onOpenChange={() => setItemToArchive(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive {itemToArchive?.name}?</AlertDialogTitle>
+            <AlertDialogTitle>{t('rentAndTenants.archiveDialogTitle', { name: itemToArchive?.name })}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will make the renter inactive and their room available. All their past payment history will be preserved. This action can be undone by reactivating them.
+              {t('rentAndTenants.archiveDialogDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleArchiveRenter} disabled={isSubmitting}>
-              {isSubmitting ? 'Archiving...' : 'Continue'}
+              {isSubmitting ? t('rentAndTenants.archiving') : t('common.continue')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -816,15 +821,15 @@ export default function RentTenantsPage() {
        <AlertDialog open={!!itemToDelete} onOpenChange={() => setItemToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
             <AlertDialogDescription>
               {getDeleteItemDescription()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={isSubmitting}>
-              {isSubmitting ? 'Deleting...' : 'Continue'}
+              {isSubmitting ? t('common.deleting') : t('common.continue')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -832,5 +837,3 @@ export default function RentTenantsPage() {
     </div>
   )
 }
-
-    

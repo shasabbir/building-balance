@@ -17,9 +17,13 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useLanguage } from '@/contexts/language-context'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 export default function SettingsPage() {
   const { initiationDate, updateInitiationDate, clearAllData } = useData()
+  const { language, setLanguage, t } = useLanguage()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [isClearAlertOpen, setIsClearAlertOpen] = React.useState(false)
 
@@ -46,19 +50,19 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Settings" />
+      <PageHeader title={t('settings.title')} />
       <Card>
         <CardHeader>
-          <CardTitle>System Settings</CardTitle>
+          <CardTitle>{t('settings.system')}</CardTitle>
           <CardDescription>
-            Global settings for the application.
+            {t('settings.systemDesc')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
            <div>
-            <h3 className="font-medium mb-2">System Initiation Month</h3>
+            <h3 className="font-medium mb-2">{t('settings.initiationMonth')}</h3>
             <div className="flex flex-col gap-2 items-start justify-between mt-2 text-sm text-muted-foreground p-4 border rounded-lg sm:flex-row sm:items-center">
-                <p className="mb-2 sm:mb-0">Set the month from which all calculations should begin. This will be the earliest month you can navigate to.</p>
+                <p className="mb-2 sm:mb-0">{t('settings.initiationMonthDesc')}</p>
                 <DatePicker 
                   date={initiationDate} 
                   setDate={handleDateChange}
@@ -70,30 +74,59 @@ export default function SettingsPage() {
       
       <Card>
         <CardHeader>
-          <CardTitle>Appearance</CardTitle>
+          <CardTitle>{t('settings.appearance')}</CardTitle>
           <CardDescription>
-            Customize the look and feel of the app.
+            {t('settings.appearanceDesc')}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <h3 className="font-medium mb-4">Theme</h3>
-          <ThemeToggle />
+        <CardContent className="space-y-8">
+          <div>
+            <h3 className="font-medium mb-4">{t('settings.theme')}</h3>
+            <ThemeToggle />
+          </div>
+          <div>
+            <h3 className="font-medium mb-4">{t('settings.language')}</h3>
+            <RadioGroup
+              value={language}
+              onValueChange={(value) => setLanguage(value as 'en' | 'bn')}
+              className="grid max-w-md grid-cols-1 gap-4 sm:grid-cols-3"
+            >
+              <div>
+                <RadioGroupItem value="en" id="en" className="peer sr-only" />
+                <Label
+                  htmlFor="en"
+                  className="flex cursor-pointer flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                >
+                  {t('settings.english')}
+                </Label>
+              </div>
+              <div>
+                <RadioGroupItem value="bn" id="bn" className="peer sr-only" />
+                <Label
+                  htmlFor="bn"
+                  className="flex cursor-pointer flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                >
+                  {t('settings.bengali')}
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Data Management</CardTitle>
+          <CardTitle>{t('settings.dataManagement')}</CardTitle>
           <CardDescription>
-            Manage your application data.
+            {t('settings.dataManagementDesc')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h3 className="font-medium">Clear All Data</h3>
+            <h3 className="font-medium">{t('settings.clearAllData')}</h3>
             <div className="flex flex-col items-start justify-between mt-2 text-sm text-muted-foreground p-4 border rounded-lg sm:flex-row sm:items-center">
-                <p className="mb-2 sm:mb-0 max-w-prose">Permanently delete all data and reset the application to its initial state. <span className="font-bold text-destructive">This action cannot be undone.</span></p>
-                <Button variant="destructive" onClick={() => setIsClearAlertOpen(true)}>Clear All Data</Button>
+                <p className="mb-2 sm:mb-0 max-w-prose">{t('settings.clearAllDataDesc')} <span className="font-bold text-destructive">This action cannot be undone.</span></p>
+                <Button variant="destructive" onClick={() => setIsClearAlertOpen(true)}>{t('settings.clearAllDataButton')}</Button>
             </div>
           </div>
         </CardContent>
@@ -102,15 +135,15 @@ export default function SettingsPage() {
       <AlertDialog open={isClearAlertOpen} onOpenChange={setIsClearAlertOpen}>
           <AlertDialogContent>
               <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogTitle>{t('common.areYouSure')}</AlertDialogTitle>
                   <AlertDialogDescription>
-                  This will permanently erase all data from the server and your local device. The application will be reset to its default state. This action cannot be undone.
+                    {t('settings.clearAlertDesc')}
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                   <AlertDialogAction onClick={handleClearData} disabled={isSubmitting}>
-                      {isSubmitting ? 'Clearing...' : 'Continue'}
+                      {isSubmitting ? t('settings.clearing') : t('common.continue')}
                   </AlertDialogAction>
               </AlertDialogFooter>
           </AlertDialogContent>

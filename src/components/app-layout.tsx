@@ -10,21 +10,24 @@ import { Button } from "@/components/ui/button"
 import { BuildingIcon } from "./icons"
 import { useDate } from "@/contexts/date-context"
 import { format, subMonths, addMonths, startOfMonth, isBefore, isSameMonth, isAfter } from "date-fns"
+import { bn as bnLocale } from "date-fns/locale/bn"
 import { useData } from "@/contexts/data-context"
-
-const menuItems = [
-  { path: "/", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/family-payments", label: "Family Payments", icon: Users },
-  { path: "/utility-bills", label: "Utility Bills", icon: Receipt },
-  { path: "/other-expenses", label: "Other Expenses", icon: ShoppingCart },
-  { path: "/rent-tenants", label: "Rent & Tenants", icon: Home },
-  { path: "/settings", label: "Settings", icon: Settings },
-];
+import { useLanguage } from "@/contexts/language-context"
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { selectedDate, setSelectedDate } = useDate()
   const { initiationDate } = useData()
+  const { language, t } = useLanguage()
+
+  const menuItems = React.useMemo(() => [
+    { path: "/", label: t('nav.dashboard'), icon: LayoutDashboard },
+    { path: "/family-payments", label: t('nav.familyPayments'), icon: Users },
+    { path: "/utility-bills", label: t('nav.utilityBills'), icon: Receipt },
+    { path: "/other-expenses", label: t('nav.otherExpenses'), icon: ShoppingCart },
+    { path: "/rent-tenants", label: t('nav.rentAndTenants'), icon: Home },
+    { path: "/settings", label: t('nav.settings'), icon: Settings },
+  ], [t]);
 
   const handlePrevMonth = () => {
     setSelectedDate(subMonths(selectedDate, 1))
@@ -40,6 +43,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const oneMonthFromNow = addMonths(startOfMonth(new Date()), 1);
     return isSameMonth(selectedDate, oneMonthFromNow) || isAfter(startOfMonth(selectedDate), oneMonthFromNow);
   }, [selectedDate]);
+
+  const formattedDate = format(selectedDate, "MMMM yyyy", {
+    locale: language === 'bn' ? bnLocale : undefined
+  })
 
   return (
     <SidebarProvider>
@@ -77,14 +84,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2">
               <Button variant="outline" size="icon" className="h-8 w-8" onClick={handlePrevMonth} disabled={isPrevDisabled}>
                 <ChevronLeft className="h-4 w-4" />
-                <span className="sr-only">Previous Month</span>
+                <span className="sr-only">{t('appLayout.prevMonth')}</span>
               </Button>
               <span className="font-semibold text-lg w-32 text-center">
-                {format(selectedDate, "MMMM yyyy")}
+                {formattedDate}
               </span>
               <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleNextMonth} disabled={isNextDisabled}>
                 <ChevronRight className="h-4 w-4" />
-                <span className="sr-only">Next Month</span>
+                <span className="sr-only">{t('appLayout.nextMonth')}</span>
               </Button>
             </div>
         </header>
