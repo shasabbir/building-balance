@@ -142,11 +142,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         handleApiResponse(freshData);
     } catch (error) {
         console.error("Sync failed:", error);
-        toast({ variant: 'destructive', title: 'Sync Failed', description: "Could not connect to the server. Displaying local data." })
+        // This behavior is based on the user request to re-authenticate on fetch failure.
+        // This will make the app require an internet connection to start.
+        localStorage.removeItem('pin');
+        localStorage.removeItem('isPinAuthenticated');
+        window.location.reload();
     } finally {
         setIsSyncing(false);
     }
-  }, [toast]);
+  }, []);
 
   // Load from localStorage on mount, then sync with API
   React.useEffect(() => {
@@ -165,11 +169,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           toast({ title: 'Success', description: successMessage });
       } catch (error) {
           console.error("API Action Failed:", error);
-          
-          // The API service itself handles the specific "Authentication failed" error by reloading the page.
-          // This catch block handles all other errors (e.g., network issues, other server errors).
-          // As requested, any failure during a data modification action will prompt for the PIN again
-          // to ensure the session is valid.
+          // If any API action fails (auth error, network error, etc.),
+          // force re-authentication to ensure session validity.
           localStorage.removeItem('pin');
           localStorage.removeItem('isPinAuthenticated');
           window.location.reload();
