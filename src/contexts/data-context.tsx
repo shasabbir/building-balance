@@ -165,8 +165,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           toast({ title: 'Success', description: successMessage });
       } catch (error) {
           console.error("API Action Failed:", error);
-          toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
-          throw error; // Re-throw to be caught by the calling component
+          
+          // The API service itself handles the specific "Authentication failed" error by reloading the page.
+          // This catch block handles all other errors (e.g., network issues, other server errors).
+          // As requested, any failure during a data modification action will prompt for the PIN again
+          // to ensure the session is valid.
+          localStorage.removeItem('pin');
+          localStorage.removeItem('isPinAuthenticated');
+          window.location.reload();
       }
   };
 
