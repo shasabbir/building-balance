@@ -141,16 +141,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const freshData = await api.sync();
         handleApiResponse(freshData);
     } catch (error) {
-        console.error("Sync failed:", error);
-        // This behavior is based on the user request to re-authenticate on fetch failure.
-        // This will make the app require an internet connection to start.
-        localStorage.removeItem('pin');
-        localStorage.removeItem('isPinAuthenticated');
-        window.location.reload();
+        if (typeof window !== 'undefined' && !window.navigator.onLine) {
+            toast({
+                variant: "destructive",
+                title: "No Internet Connection",
+                description: "Could not sync with the server. Displaying cached data.",
+            });
+        } else {
+            console.error("Sync failed:", error);
+            localStorage.removeItem('pin');
+            localStorage.removeItem('isPinAuthenticated');
+            window.location.reload();
+        }
     } finally {
         setIsSyncing(false);
     }
-  }, []);
+  }, [toast]);
 
   // Load from localStorage on mount, then sync with API
   React.useEffect(() => {
@@ -168,12 +174,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           handleApiResponse(freshData);
           toast({ title: 'Success', description: successMessage });
       } catch (error) {
-          console.error("API Action Failed:", error);
-          // If any API action fails (auth error, network error, etc.),
-          // force re-authentication to ensure session validity.
-          localStorage.removeItem('pin');
-          localStorage.removeItem('isPinAuthenticated');
-          window.location.reload();
+          if (typeof window !== 'undefined' && !window.navigator.onLine) {
+              toast({
+                  variant: "destructive",
+                  title: "No Internet Connection",
+                  description: "Your changes could not be saved. Please check your connection and try again.",
+              });
+          } else {
+              console.error("API Action Failed:", error);
+              localStorage.removeItem('pin');
+              localStorage.removeItem('isPinAuthenticated');
+              window.location.reload();
+          }
       }
   };
 
