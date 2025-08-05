@@ -61,7 +61,7 @@ import { getEffectiveValue, findRoomForRenter, findOccupantForRoom } from "@/lib
 
 export default function RentTenantsPage() {
   const { toast } = useToast()
-  const { renters, rentPayments, rooms, addRenter, updateRenter, archiveRenter, addRoom, updateRoom, deleteRoom, addRentPayment, updateRentPayment, deleteRentPayment } = useData()
+  const { renters, rentPayments, rooms, addRenter, updateRenter, archiveRenter, addRoom, updateRoom, deleteRoom, addRentPayment, updateRentPayment, deleteRentPayment, accessLevel } = useData()
   const { selectedDate } = useDate()
   const { t } = useLanguage()
   
@@ -92,6 +92,8 @@ export default function RentTenantsPage() {
   const [roomNumber, setRoomNumber] = React.useState("")
   const [roomRentAmount, setRoomRentAmount] = React.useState("")
 
+  const isReadOnly = accessLevel === 'readonly';
+
   const referenceDate = React.useMemo(() => (
     isSameMonth(selectedDate, new Date()) ? new Date() : lastDayOfMonth(selectedDate)
   ), [selectedDate]);
@@ -117,7 +119,7 @@ export default function RentTenantsPage() {
 
   const handleRenterSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!renterName) return
+    if (!renterName || isReadOnly) return
 
     setIsSubmitting(true)
     try {
@@ -165,7 +167,7 @@ export default function RentTenantsPage() {
   }
 
   const handleArchiveRenter = async () => {
-    if (!itemToArchive) return;
+    if (!itemToArchive || isReadOnly) return;
     setIsSubmitting(true)
     try {
       const archiveEffectiveDate = lastDayOfMonth(subMonths(new Date(), 1));
@@ -198,7 +200,7 @@ export default function RentTenantsPage() {
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedTenantId || !paymentAmount) return
+    if (!selectedTenantId || !paymentAmount || isReadOnly) return
     
     const renter = renters.find(r => r.id === selectedTenantId)
     if (!renter) return
@@ -254,7 +256,7 @@ export default function RentTenantsPage() {
 
   const handleRoomSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!roomNumber || !roomRentAmount) return
+    if (!roomNumber || !roomRentAmount || isReadOnly) return
 
     setIsSubmitting(true)
     try {
@@ -298,7 +300,7 @@ export default function RentTenantsPage() {
   
   // --- Delete Logic ---
   const handleDelete = async () => {
-    if (!itemToDelete) return
+    if (!itemToDelete || isReadOnly) return
     setIsSubmitting(true)
     try {
       if (itemToDelete.type === 'payment') {
@@ -438,15 +440,15 @@ export default function RentTenantsPage() {
     <div className="flex flex-col gap-8">
       <PageHeader title={t('rentAndTenants.title')}>
         <div className="flex gap-2">
-            <Button size="sm" className="gap-1" onClick={() => openRoomDialog(null)}>
+            <Button size="sm" className="gap-1" onClick={() => openRoomDialog(null)} disabled={isReadOnly}>
               <PlusCircle className="h-4 w-4" />
               {t('rentAndTenants.addRoom')}
             </Button>
-           <Button size="sm" className="gap-1" onClick={() => openRenterDialog(null)}>
+           <Button size="sm" className="gap-1" onClick={() => openRenterDialog(null)} disabled={isReadOnly}>
               <PlusCircle className="h-4 w-4" />
               {t('rentAndTenants.addRenter')}
             </Button>
-            <Button size="sm" className="gap-1" onClick={() => openPaymentDialog(null)}>
+            <Button size="sm" className="gap-1" onClick={() => openPaymentDialog(null)} disabled={isReadOnly}>
               <PlusCircle className="h-4 w-4" />
               {t('rentAndTenants.addRentPayment')}
             </Button>
@@ -546,7 +548,7 @@ export default function RentTenantsPage() {
                                 <TableCell>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                            <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isReadOnly}>
                                             <MoreHorizontal className="h-4 w-4" />
                                             <span className="sr-only">{t('common.toggleMenu')}</span>
                                             </Button>
@@ -606,7 +608,7 @@ export default function RentTenantsPage() {
                         <TableCell>
                             <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isReadOnly}>
                                 <MoreHorizontal className="h-4 w-4" />
                                 <span className="sr-only">{t('common.toggleMenu')}</span>
                                 </Button>
@@ -650,7 +652,7 @@ export default function RentTenantsPage() {
                                 <TableCell>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                            <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isReadOnly}>
                                             <MoreHorizontal className="h-4 w-4" />
                                             <span className="sr-only">{t('common.toggleMenu')}</span>
                                             </Button>
@@ -683,7 +685,7 @@ export default function RentTenantsPage() {
                         <TableRow key={renter.id}>
                             <TableCell className="font-medium text-muted-foreground">{renter.name}</TableCell>
                             <TableCell>
-                                <Button variant="outline" size="sm" onClick={() => openRenterDialog(renter)}>{t('rentAndTenants.reactivate')}</Button>
+                                <Button variant="outline" size="sm" onClick={() => openRenterDialog(renter)} disabled={isReadOnly}>{t('rentAndTenants.reactivate')}</Button>
                             </TableCell>
                         </TableRow>
                     )) : (
@@ -735,7 +737,7 @@ export default function RentTenantsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>{editingRenter ? t('common.save') : t('common.add')}</Button>
+                <Button type="submit" loading={isSubmitting} disabled={isReadOnly}>{editingRenter ? t('common.save') : t('common.add')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -777,7 +779,7 @@ export default function RentTenantsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>{editingPayment ? t('common.save') : t('common.add')}</Button>
+                <Button type="submit" loading={isSubmitting} disabled={isReadOnly}>{editingPayment ? t('common.save') : t('common.add')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -804,7 +806,7 @@ export default function RentTenantsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>{editingRoom ? t('common.save') : t('common.add')}</Button>
+                <Button type="submit" loading={isSubmitting} disabled={isReadOnly}>{editingRoom ? t('common.save') : t('common.add')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -821,7 +823,7 @@ export default function RentTenantsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleArchiveRenter} disabled={isSubmitting}>
+            <AlertDialogAction onClick={handleArchiveRenter} disabled={isSubmitting || isReadOnly}>
               {isSubmitting ? t('rentAndTenants.archiving') : t('common.continue')}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -839,7 +841,7 @@ export default function RentTenantsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isSubmitting}>
+            <AlertDialogAction onClick={handleDelete} disabled={isSubmitting || isReadOnly}>
               {isSubmitting ? t('common.deleting') : t('common.continue')}
             </AlertDialogAction>
           </AlertDialogFooter>

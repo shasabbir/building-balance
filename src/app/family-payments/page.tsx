@@ -60,7 +60,7 @@ import { useToast } from "@/hooks/use-toast"
 
 
 export default function FamilyPaymentsPage() {
-  const { payouts, familyMembers, addPayout, updatePayout, deletePayout, addFamilyMember, updateFamilyMember, deleteFamilyMember } = useData()
+  const { payouts, familyMembers, addPayout, updatePayout, deletePayout, addFamilyMember, updateFamilyMember, deleteFamilyMember, accessLevel } = useData()
   const { selectedDate } = useDate()
   const { toast } = useToast()
   const { t } = useLanguage()
@@ -83,6 +83,8 @@ export default function FamilyPaymentsPage() {
   const [memberName, setMemberName] = React.useState("")
   const [memberExpected, setMemberExpected] = React.useState("")
 
+  const isReadOnly = accessLevel === 'readonly';
+
   const referenceDate = React.useMemo(() => (
     isSameMonth(selectedDate, new Date()) ? new Date() : lastDayOfMonth(selectedDate)
   ), [selectedDate]);
@@ -103,7 +105,7 @@ export default function FamilyPaymentsPage() {
 
   const handlePayoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedMemberId || !payoutAmount) return
+    if (!selectedMemberId || !payoutAmount || isReadOnly) return
 
     const member = familyMembers.find(m => m.id === selectedMemberId)
     if (!member) return
@@ -155,7 +157,7 @@ export default function FamilyPaymentsPage() {
 
   const handleMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!memberName || !memberExpected) return
+    if (!memberName || !memberExpected || isReadOnly) return
 
     setIsSubmitting(true)
     try {
@@ -212,7 +214,7 @@ export default function FamilyPaymentsPage() {
   }
 
   const handleDelete = async () => {
-      if (!itemToDelete) return
+      if (!itemToDelete || isReadOnly) return
       
       setIsSubmitting(true)
       try {
@@ -293,11 +295,11 @@ export default function FamilyPaymentsPage() {
     <div className="flex flex-col gap-8">
       <PageHeader title={t('familyPayments.title')}>
         <div className="flex gap-2">
-            <Button size="sm" className="gap-1" onClick={() => openMemberDialog(null)}>
+            <Button size="sm" className="gap-1" onClick={() => openMemberDialog(null)} disabled={isReadOnly}>
                 <PlusCircle className="h-4 w-4" />
                 {t('familyPayments.addMember')}
             </Button>
-            <Button size="sm" className="gap-1" onClick={() => openPayoutDialog(null)}>
+            <Button size="sm" className="gap-1" onClick={() => openPayoutDialog(null)} disabled={isReadOnly}>
                 <PlusCircle className="h-4 w-4" />
                 {t('familyPayments.addPayout')}
             </Button>
@@ -387,7 +389,7 @@ export default function FamilyPaymentsPage() {
                                 <TableCell>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                                            <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isReadOnly}>
                                             <MoreHorizontal className="h-4 w-4" />
                                             <span className="sr-only">{t('common.toggleMenu')}</span>
                                             </Button>
@@ -438,7 +440,7 @@ export default function FamilyPaymentsPage() {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                        <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isReadOnly}>
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">{t('common.toggleMenu')}</span>
                         </Button>
@@ -506,7 +508,7 @@ export default function FamilyPaymentsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>{editingPayout ? t('common.save') : t('common.add')}</Button>
+                <Button type="submit" loading={isSubmitting} disabled={isReadOnly}>{editingPayout ? t('common.save') : t('common.add')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -537,7 +539,7 @@ export default function FamilyPaymentsPage() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" loading={isSubmitting}>{editingMember ? t('common.save') : t('common.add')}</Button>
+                  <Button type="submit" loading={isSubmitting} disabled={isReadOnly}>{editingMember ? t('common.save') : t('common.add')}</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -554,7 +556,7 @@ export default function FamilyPaymentsPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} disabled={isSubmitting}>
+                    <AlertDialogAction onClick={handleDelete} disabled={isSubmitting || isReadOnly}>
                     {isSubmitting ? t('common.deleting') : t('common.continue')}
                     </AlertDialogAction>
                 </AlertDialogFooter>

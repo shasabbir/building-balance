@@ -22,13 +22,15 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 export default function SettingsPage() {
-  const { initiationDate, updateInitiationDate, clearAllData } = useData()
+  const { initiationDate, updateInitiationDate, clearAllData, accessLevel } = useData()
   const { language, setLanguage, t } = useLanguage()
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [isClearAlertOpen, setIsClearAlertOpen] = React.useState(false)
 
+  const isReadOnly = accessLevel === 'readonly';
+
   const handleDateChange = async (date?: Date) => {
-    if (date) {
+    if (date && !isReadOnly) {
       setIsSubmitting(true)
       try {
         await updateInitiationDate(date)
@@ -39,6 +41,7 @@ export default function SettingsPage() {
   }
   
   const handleClearData = async () => {
+      if (isReadOnly) return;
       setIsSubmitting(true)
       try {
           await clearAllData()
@@ -66,6 +69,7 @@ export default function SettingsPage() {
                 <DatePicker 
                   date={initiationDate} 
                   setDate={handleDateChange}
+                  disabled={isReadOnly}
                   />
             </div>
           </div>
@@ -126,7 +130,7 @@ export default function SettingsPage() {
             <h3 className="font-medium">{t('settings.clearAllData')}</h3>
             <div className="flex flex-col items-start justify-between mt-2 text-sm text-muted-foreground p-4 border rounded-lg sm:flex-row sm:items-center">
                 <p className="mb-2 sm:mb-0 max-w-prose">{t('settings.clearAllDataDesc')} <span className="font-bold text-destructive">This action cannot be undone.</span></p>
-                <Button variant="destructive" onClick={() => setIsClearAlertOpen(true)}>{t('settings.clearAllDataButton')}</Button>
+                <Button variant="destructive" onClick={() => setIsClearAlertOpen(true)} disabled={isReadOnly}>{t('settings.clearAllDataButton')}</Button>
             </div>
           </div>
         </CardContent>
@@ -142,7 +146,7 @@ export default function SettingsPage() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleClearData} disabled={isSubmitting}>
+                  <AlertDialogAction onClick={handleClearData} disabled={isSubmitting || isReadOnly}>
                       {isSubmitting ? t('settings.clearing') : t('common.continue')}
                   </AlertDialogAction>
               </AlertDialogFooter>

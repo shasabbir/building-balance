@@ -58,7 +58,7 @@ import { isSameMonth, lastDayOfMonth } from "date-fns"
 
 
 export default function OtherExpensesPage() {
-  const { otherExpenses, addExpense, updateExpense, deleteExpense } = useData()
+  const { otherExpenses, addExpense, updateExpense, deleteExpense, accessLevel } = useData()
   const { selectedDate } = useDate()
   const { t } = useLanguage()
 
@@ -72,6 +72,8 @@ export default function OtherExpensesPage() {
   const [amount, setAmount] = React.useState("")
   const [details, setDetails] = React.useState("")
   
+  const isReadOnly = accessLevel === 'readonly';
+
   const openDialog = (expense: Expense | null) => {
     setEditingExpense(expense)
     if (expense) {
@@ -88,7 +90,7 @@ export default function OtherExpensesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!category || !amount || !details) return
+    if (!category || !amount || !details || isReadOnly) return
     
     setIsSubmitting(true)
     try {
@@ -122,6 +124,7 @@ export default function OtherExpensesPage() {
   }
   
   const handleDelete = async (expense: Expense) => {
+    if (isReadOnly) return;
     setIsSubmitting(true)
     try {
         await deleteExpense(expense.id)
@@ -146,7 +149,7 @@ export default function OtherExpensesPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title={t('otherExpenses.title')}>
-        <Button size="sm" className="gap-1" onClick={() => openDialog(null)}>
+        <Button size="sm" className="gap-1" onClick={() => openDialog(null)} disabled={isReadOnly}>
             <PlusCircle className="h-4 w-4" />
             {t('otherExpenses.addExpense')}
         </Button>
@@ -182,7 +185,7 @@ export default function OtherExpensesPage() {
                     <TableCell>
                         <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isReadOnly}>
                             <MoreHorizontal className="h-4 w-4" />
                             <span className="sr-only">{t('common.toggleMenu')}</span>
                             </Button>
@@ -251,7 +254,7 @@ export default function OtherExpensesPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>{t('otherExpenses.saveExpense')}</Button>
+                <Button type="submit" loading={isSubmitting} disabled={isReadOnly}>{t('otherExpenses.saveExpense')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -268,7 +271,7 @@ export default function OtherExpensesPage() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => expenseToDelete && handleDelete(expenseToDelete)} disabled={isSubmitting}>
+                    <AlertDialogAction onClick={() => expenseToDelete && handleDelete(expenseToDelete)} disabled={isSubmitting || isReadOnly}>
                       {isSubmitting ? t('common.deleting') : t('common.continue')}
                     </AlertDialogAction>
                 </AlertDialogFooter>

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/popover"
 import { useLanguage } from "@/contexts/language-context"
 
-export function DatePicker({ date, setDate, className }: { date?: Date, setDate: (date?: Date) => void, className?: string }) {
+export function DatePicker({ date, setDate, className, disabled }: { date?: Date, setDate: (date?: Date) => void, className?: string, disabled?: boolean }) {
   const { language, t } = useLanguage()
   const [isOpen, setIsOpen] = React.useState(false);
 
@@ -29,6 +29,7 @@ export function DatePicker({ date, setDate, className }: { date?: Date, setDate:
       <PopoverTrigger asChild>
         <Button
           variant={"outline"}
+          disabled={disabled}
           className={cn(
             "w-[280px] justify-start text-left font-normal",
             !date && "text-muted-foreground",
@@ -50,6 +51,7 @@ export function DatePicker({ date, setDate, className }: { date?: Date, setDate:
           toYear={new Date().getFullYear() + 5}
           defaultMonth={date}
           locale={language === 'bn' ? bnLocale : undefined}
+          disabled={disabled}
         />
       </PopoverContent>
     </Popover>

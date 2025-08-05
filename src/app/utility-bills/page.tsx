@@ -58,7 +58,7 @@ import { isSameMonth, lastDayOfMonth } from "date-fns"
 
 
 export default function UtilityBillsPage() {
-  const { utilityBills, addUtilityBill, updateUtilityBill, deleteUtilityBill } = useData()
+  const { utilityBills, addUtilityBill, updateUtilityBill, deleteUtilityBill, accessLevel } = useData()
   const { selectedDate } = useDate()
   const { t } = useLanguage()
 
@@ -71,6 +71,8 @@ export default function UtilityBillsPage() {
   const [billType, setBillType] = React.useState<UtilityBill['type'] | "">("")
   const [amount, setAmount] = React.useState("")
   const [notes, setNotes] = React.useState("")
+
+  const isReadOnly = accessLevel === 'readonly';
 
   const openDialog = (bill: UtilityBill | null) => {
     setEditingBill(bill)
@@ -88,7 +90,7 @@ export default function UtilityBillsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!billType || !amount) return
+    if (!billType || !amount || isReadOnly) return
 
     setIsSubmitting(true)
     try {
@@ -122,6 +124,7 @@ export default function UtilityBillsPage() {
   }
   
   const handleDelete = async (bill: UtilityBill) => {
+      if(isReadOnly) return;
       setIsSubmitting(true)
       try {
           await deleteUtilityBill(bill.id)
@@ -146,7 +149,7 @@ export default function UtilityBillsPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title={t('utilityBills.title')}>
-        <Button size="sm" className="gap-1" onClick={() => openDialog(null)}>
+        <Button size="sm" className="gap-1" onClick={() => openDialog(null)} disabled={isReadOnly}>
           <PlusCircle className="h-4 w-4" />
           {t('utilityBills.addBill')}
         </Button>
@@ -181,7 +184,7 @@ export default function UtilityBillsPage() {
                     <TableCell>
                         <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                            <Button aria-haspopup="true" size="icon" variant="ghost" disabled={isReadOnly}>
                             <MoreHorizontal className="h-4 w-4" />
                             <span className="sr-only">{t('common.toggleMenu')}</span>
                             </Button>
@@ -250,7 +253,7 @@ export default function UtilityBillsPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" loading={isSubmitting}>{t('utilityBills.savePayment')}</Button>
+              <Button type="submit" loading={isSubmitting} disabled={isReadOnly}>{t('utilityBills.savePayment')}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -267,7 +270,7 @@ export default function UtilityBillsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => billToDelete && handleDelete(billToDelete)} disabled={isSubmitting}>
+            <AlertDialogAction onClick={() => billToDelete && handleDelete(billToDelete)} disabled={isSubmitting || isReadOnly}>
               {isSubmitting ? t('common.deleting') : t('common.continue')}
             </AlertDialogAction>
           </AlertDialogFooter>
