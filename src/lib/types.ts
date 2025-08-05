@@ -52,3 +52,5 @@ export interface RentPayment {
   amount: number
   date: string
 }
+
+    

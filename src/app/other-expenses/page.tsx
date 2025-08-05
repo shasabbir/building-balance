@@ -178,7 +178,7 @@ export default function OtherExpensesPage() {
                     <TableRow key={expense.id}>
                     <TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell>
                     <TableCell>
-                        <Badge variant="outline">{t(`otherExpenses.category${expense.category}`)}</Badge>
+                        <Badge variant="outline">{t(`otherExpenses.category${expense.category.charAt(0).toUpperCase() + expense.category.slice(1)}`)}</Badge>
                     </TableCell>
                     <TableCell className="font-medium hidden sm:table-cell">{expense.details}</TableCell>
                     <TableCell className="text-right">৳{expense.amount.toLocaleString()}</TableCell>
@@ -234,9 +234,9 @@ export default function OtherExpensesPage() {
                       <SelectValue placeholder={t('otherExpenses.selectCategory')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="household">{t('otherExpenses.categoryHousehold')}</SelectItem>
-                      <SelectItem value="maintenance">{t('otherExpenses.categoryMaintenance')}</SelectItem>
-                      <SelectItem value="other">{t('otherExpenses.categoryOther')}</SelectItem>
+                      <SelectItem value="Household">{t('otherExpenses.categoryHousehold')}</SelectItem>
+                      <SelectItem value="Maintenance">{t('otherExpenses.categoryMaintenance')}</SelectItem>
+                      <SelectItem value="Other">{t('otherExpenses.categoryOther')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -254,7 +254,7 @@ export default function OtherExpensesPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting} disabled={isReadOnly}>{t('otherExpenses.saveExpense')}</Button>
+                <Button type="submit" loading={isSubmitting} disabled={isReadOnly}>{editingExpense ? t('common.save') : t('common.add')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -280,3 +280,5 @@ export default function OtherExpensesPage() {
     </div>
   )
 }
+
+    
