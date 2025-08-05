@@ -357,7 +357,7 @@ export default function RentTenantsPage() {
                 occupant,
                 rentDue,
                 rentPaidThisMonth,
-                payableThisMonth: payableThisMonth > 0 ? payableThisMonth : 0,
+                payableThisMonth: payableThisMonth,
             };
         }
         
@@ -386,7 +386,7 @@ export default function RentTenantsPage() {
       .map(r => {
         const renterPaymentsThisMonth = rentPayments.filter(p => p.renterId === r.id && isSameMonth(new Date(p.date), selectedDate));
         const rentPaidThisMonth = renterPaymentsThisMonth.reduce((acc, p) => acc + p.amount, 0);
-        return { room: null, occupant: r, rentDue: 0, rentPaidThisMonth: rentPaidThisMonth, payableThisMonth: 0 };
+        return { room: null, occupant: r, rentDue: 0, rentPaidThisMonth: rentPaidThisMonth, payableThisMonth: -rentPaidThisMonth };
       });
 
     return [...roomSummaries, ...unassignedRentersInMonth];
@@ -395,7 +395,7 @@ export default function RentTenantsPage() {
   const rentStatusTotals = React.useMemo(() => {
     const rentDue = rentStatusSummary.reduce((acc, s) => acc + s.rentDue, 0)
     const rentPaidThisMonth = rentStatusSummary.reduce((acc, s) => acc + s.rentPaidThisMonth, 0)
-    const payableThisMonth = rentStatusSummary.reduce((acc, s) => acc + s.payableThisMonth, 0)
+    const payableThisMonth = rentStatusSummary.reduce((acc, s) => acc + (s.payableThisMonth > 0 ? s.payableThisMonth : 0), 0)
     const cumulativePayable = rentStatusSummary.reduce((acc, s) => acc + (s.occupant?.cumulativePayable || 0), 0)
     return { rentDue, rentPaidThisMonth, payableThisMonth, cumulativePayable }
   }, [rentStatusSummary])
@@ -481,10 +481,12 @@ export default function RentTenantsPage() {
                       <TableCell className="text-right">৳{rentDue?.toLocaleString()}</TableCell>
                       <TableCell className="text-right">৳{rentPaidThisMonth?.toLocaleString()}</TableCell>
                       <TableCell className="text-right">
-                        {payableThisMonth && payableThisMonth > 0 ? (
+                        {payableThisMonth > 0 ? (
                           <Badge variant="destructive">৳{payableThisMonth.toLocaleString()}</Badge>
                         ) : (
-                          '৳0'
+                          <span className={payableThisMonth < 0 ? 'text-green-600' : ''}>
+                            ৳{payableThisMonth.toLocaleString()}
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-semibold hidden md:table-cell">৳{occupant.cumulativePayable.toLocaleString()}</TableCell>
@@ -837,3 +839,5 @@ export default function RentTenantsPage() {
     </div>
   )
 }
+
+    

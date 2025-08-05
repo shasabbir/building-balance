@@ -252,7 +252,7 @@ export default function FamilyPaymentsPage() {
         ...member,
         expected,
         paid,
-        payable: payable > 0 ? payable : 0,
+        payable: payable,
       }
     })
   }, [payouts, familyMembers, selectedDate, referenceDate])
@@ -321,7 +321,9 @@ export default function FamilyPaymentsPage() {
                     {member.payable > 0 ? (
                       <Badge variant="destructive">৳{member.payable.toLocaleString()}</Badge>
                     ) : (
-                      '৳0'
+                      <span className={member.payable < 0 ? 'text-green-600' : ''}>
+                        ৳{member.payable.toLocaleString()}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="text-right font-semibold hidden md:table-cell">৳{member.cumulativePayable.toLocaleString()}</TableCell>
@@ -544,3 +546,5 @@ export default function FamilyPaymentsPage() {
     </div>
   )
 }
+
+    
