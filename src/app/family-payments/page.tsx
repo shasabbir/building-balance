@@ -54,7 +54,7 @@ import {
 import { useData } from "@/contexts/data-context"
 import { useDate } from "@/contexts/date-context"
 import { useLanguage } from "@/contexts/language-context"
-import { isSameMonth, lastDayOfMonth } from "date-fns"
+import { isSameMonth, lastDayOfMonth, startOfDay } from "date-fns"
 import { getEffectiveValue } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 
@@ -144,7 +144,7 @@ export default function FamilyPaymentsPage() {
     setEditingMember(member)
     if (member) {
       setMemberName(member.name)
-      const currentExpected = getEffectiveValue(member.expectedHistory, new Date())
+      const currentExpected = getEffectiveValue(member.expectedHistory, referenceDate)
       setMemberExpected(currentExpected.toString())
     } else {
       setMemberName("")
@@ -161,21 +161,30 @@ export default function FamilyPaymentsPage() {
     try {
       if (editingMember) {
         const newExpectedAmount = parseFloat(memberExpected)
-        const currentExpectedAmount = getEffectiveValue(editingMember.expectedHistory, new Date())
+        
+        // Determine the effective date for the change
+        const changeDate = isSameMonth(selectedDate, new Date()) 
+            ? new Date() 
+            : lastDayOfMonth(selectedDate);
+        
+        const currentExpectedAmount = getEffectiveValue(editingMember.expectedHistory, changeDate)
         
         const history = Array.isArray(editingMember.expectedHistory) ? editingMember.expectedHistory : []
         let updatedHistory = [...history]
 
         if (newExpectedAmount !== currentExpectedAmount) {
-            const today = new Date();
-            const existingTodayIndex = updatedHistory.findIndex(
-              (entry) => new Date(entry.effectiveDate).toDateString() === today.toDateString()
+            const effectiveDateStr = startOfDay(changeDate).toISOString();
+
+            const existingIndex = updatedHistory.findIndex(
+              (entry) => startOfDay(new Date(entry.effectiveDate)).toISOString() === effectiveDateStr
             );
 
-            if (existingTodayIndex !== -1) {
-              updatedHistory[existingTodayIndex].amount = newExpectedAmount;
+            if (existingIndex !== -1) {
+              // Update existing entry for the same day
+              updatedHistory[existingIndex].amount = newExpectedAmount;
             } else {
-              updatedHistory.push({ amount: newExpectedAmount, effectiveDate: today.toISOString() });
+              // Add new entry
+              updatedHistory.push({ amount: newExpectedAmount, effectiveDate: changeDate.toISOString() });
             }
         }
 
