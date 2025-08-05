@@ -319,18 +319,18 @@ export default function FamilyPaymentsPage() {
                   <TableCell className="text-right">৳{member.paid.toLocaleString()}</TableCell>
                   <TableCell className="text-right">
                     {member.payable > 0 ? (
-                      <Badge variant="destructive">৳{member.payable.toLocaleString()}</Badge>
-                    ) : member.payable < 0 ? (
                       <Badge variant="success">৳{member.payable.toLocaleString()}</Badge>
+                    ) : member.payable < 0 ? (
+                      <Badge variant="destructive">৳{member.payable.toLocaleString()}</Badge>
                     ) : (
                       <span>৳{member.payable.toLocaleString()}</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right font-semibold hidden md:table-cell">
                     {member.cumulativePayable > 0 ? (
-                      <Badge variant="destructive">৳{member.cumulativePayable.toLocaleString()}</Badge>
-                    ) : member.cumulativePayable < 0 ? (
                       <Badge variant="success">৳{member.cumulativePayable.toLocaleString()}</Badge>
+                    ) : member.cumulativePayable < 0 ? (
+                      <Badge variant="destructive">৳{member.cumulativePayable.toLocaleString()}</Badge>
                     ) : (
                       <span>৳{member.cumulativePayable.toLocaleString()}</span>
                     )}

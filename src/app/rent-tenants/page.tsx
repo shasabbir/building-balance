@@ -483,18 +483,18 @@ export default function RentTenantsPage() {
                       <TableCell className="text-right">৳{rentPaidThisMonth?.toLocaleString()}</TableCell>
                       <TableCell className="text-right">
                         {payableThisMonth > 0 ? (
-                          <Badge variant="destructive">৳{payableThisMonth.toLocaleString()}</Badge>
-                        ) : payableThisMonth < 0 ? (
                           <Badge variant="success">৳{payableThisMonth.toLocaleString()}</Badge>
+                        ) : payableThisMonth < 0 ? (
+                          <Badge variant="destructive">৳{payableThisMonth.toLocaleString()}</Badge>
                         ) : (
                           <span>৳{payableThisMonth.toLocaleString()}</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-semibold hidden md:table-cell">
                         {occupant.cumulativePayable > 0 ? (
-                            <Badge variant="destructive">৳{occupant.cumulativePayable.toLocaleString()}</Badge>
-                        ) : occupant.cumulativePayable < 0 ? (
                             <Badge variant="success">৳{occupant.cumulativePayable.toLocaleString()}</Badge>
+                        ) : occupant.cumulativePayable < 0 ? (
+                            <Badge variant="destructive">৳{occupant.cumulativePayable.toLocaleString()}</Badge>
                         ) : (
                             <span>৳{occupant.cumulativePayable.toLocaleString()}</span>
                         )}
