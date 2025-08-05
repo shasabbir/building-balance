@@ -7,6 +7,7 @@ import { startOfMonth, isBefore, addMonths, isSameMonth, lastDayOfMonth } from '
 import { useDate } from './date-context'
 import { api } from '@/services/api'
 import { useToast } from '@/hooks/use-toast'
+import { useLanguage } from './language-context'
 
 type DataContextType = {
   // State
@@ -112,6 +113,7 @@ type AllData = {
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast()
   const { selectedDate } = useDate()
+  const { t } = useLanguage()
   const [isLoading, setIsLoading] = React.useState(true)
   const [isSyncing, setIsSyncing] = React.useState(true)
 
@@ -144,8 +146,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         if (typeof window !== 'undefined' && !window.navigator.onLine) {
             toast({
                 variant: "destructive",
-                title: "No Internet Connection",
-                description: "Could not sync with the server. Displaying cached data.",
+                title: t('pinAuth.noInternetTitle'),
+                description: t('pinAuth.noInternetDescription'),
             });
         } else {
             console.error("Sync failed:", error);
@@ -156,7 +158,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
         setIsSyncing(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   // Load from localStorage on mount, then sync with API
   React.useEffect(() => {
@@ -177,8 +179,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           if (typeof window !== 'undefined' && !window.navigator.onLine) {
               toast({
                   variant: "destructive",
-                  title: "No Internet Connection",
-                  description: "Your changes could not be saved. Please check your connection and try again.",
+                  title: t('pinAuth.noInternetTitle'),
+                  description: t('pinAuth.noInternetDescriptionAction'),
               });
           } else {
               console.error("API Action Failed:", error);
@@ -186,6 +188,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
               localStorage.removeItem('isPinAuthenticated');
               window.location.reload();
           }
+          throw error;
       }
   };
 
@@ -203,7 +206,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             cumulativePayable += (expected - paid);
             currentDate = addMonths(currentDate, 1);
         }
-        return { ...member, cumulativePayable: cumulativePayable > 0 ? cumulativePayable : 0 };
+        return { ...member, cumulativePayable };
     });
 
     const processedRenters = renters.map(renter => {
@@ -218,7 +221,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             cumulativePayable += (expected - paid);
             currentDate = addMonths(currentDate, 1);
         }
-        return { ...renter, cumulativePayable: cumulativePayable > 0 ? cumulativePayable : 0 };
+        return { ...renter, cumulativePayable };
     });
 
     return { ...data, familyMembers: processedFamilyMembers, renters: processedRenters };
@@ -232,36 +235,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     syncData,
 
     // --- Actions ---
-    addRenter: (newRenter) => performApiAction(() => api.addRenter({ id: `t${Date.now()}`, status: 'active', cumulativePayable: 0, ...newRenter }), "Renter added successfully."),
-    updateRenter: (renter) => performApiAction(() => api.updateRenter(renter), "Renter updated successfully."),
-    archiveRenter: (renter) => performApiAction(() => api.archiveRenter(renter), "Renter archived successfully."),
+    addRenter: (newRenter) => performApiAction(() => api.addRenter({ id: `t${Date.now()}`, status: 'active', cumulativePayable: 0, ...newRenter }), t('toasts.renterAdded')),
+    updateRenter: (renter) => performApiAction(() => api.updateRenter(renter), t('toasts.renterUpdated')),
+    archiveRenter: (renter) => performApiAction(() => api.archiveRenter(renter), t('toasts.renterArchived')),
 
-    addRoom: (newRoom) => performApiAction(() => api.addRoom({ id: `r${Date.now()}`, ...newRoom }), "Room added successfully."),
-    updateRoom: (room) => performApiAction(() => api.updateRoom(room), "Room updated successfully."),
-    deleteRoom: (id) => performApiAction(() => api.deleteRoom(id), "Room deleted successfully."),
+    addRoom: (newRoom) => performApiAction(() => api.addRoom({ id: `r${Date.now()}`, ...newRoom }), t('toasts.roomAdded')),
+    updateRoom: (room) => performApiAction(() => api.updateRoom(room), t('toasts.roomUpdated')),
+    deleteRoom: (id) => performApiAction(() => api.deleteRoom(id), t('toasts.roomDeleted')),
 
-    addRentPayment: (newPayment) => performApiAction(() => api.addRentPayment({ id: `rp${Date.now()}`, ...newPayment }), "Rent payment added successfully."),
-    updateRentPayment: (payment) => performApiAction(() => api.updateRentPayment(payment), "Rent payment updated successfully."),
-    deleteRentPayment: (id) => performApiAction(() => api.deleteRentPayment(id), "Rent payment deleted successfully."),
+    addRentPayment: (newPayment) => performApiAction(() => api.addRentPayment({ id: `rp${Date.now()}`, ...newPayment }), t('toasts.rentPaymentAdded')),
+    updateRentPayment: (payment) => performApiAction(() => api.updateRentPayment(payment), t('toasts.rentPaymentUpdated')),
+    deleteRentPayment: (id) => performApiAction(() => api.deleteRentPayment(id), t('toasts.rentPaymentDeleted')),
 
-    addFamilyMember: (newMember) => performApiAction(() => api.addFamilyMember({ id: `fm${Date.now()}`, cumulativePayable: 0, ...newMember }), "Family member added successfully."),
-    updateFamilyMember: (member) => performApiAction(() => api.updateFamilyMember(member), "Family member updated successfully."),
-    deleteFamilyMember: (id) => performApiAction(() => api.deleteFamilyMember(id), "Family member deleted successfully."),
+    addFamilyMember: (newMember) => performApiAction(() => api.addFamilyMember({ id: `fm${Date.now()}`, cumulativePayable: 0, ...newMember }), t('toasts.familyMemberAdded')),
+    updateFamilyMember: (member) => performApiAction(() => api.updateFamilyMember(member), t('toasts.familyMemberUpdated')),
+    deleteFamilyMember: (id) => performApiAction(() => api.deleteFamilyMember(id), t('toasts.familyMemberDeleted')),
 
-    addPayout: (newPayout) => performApiAction(() => api.addPayout({ id: `p${Date.now()}`, ...newPayout }), "Payout added successfully."),
-    updatePayout: (payout) => performApiAction(() => api.updatePayout(payout), "Payout updated successfully."),
-    deletePayout: (id) => performApiAction(() => api.deletePayout(id), "Payout deleted successfully."),
+    addPayout: (newPayout) => performApiAction(() => api.addPayout({ id: `p${Date.now()}`, ...newPayout }), t('toasts.payoutAdded')),
+    updatePayout: (payout) => performApiAction(() => api.updatePayout(payout), t('toasts.payoutUpdated')),
+    deletePayout: (id) => performApiAction(() => api.deletePayout(id), t('toasts.payoutDeleted')),
 
-    addUtilityBill: (newBill) => performApiAction(() => api.addUtilityBill({ id: `b${Date.now()}`, ...newBill }), "Utility bill added successfully."),
-    updateUtilityBill: (bill) => performApiAction(() => api.updateUtilityBill(bill), "Utility bill updated successfully."),
-    deleteUtilityBill: (id) => performApiAction(() => api.deleteUtilityBill(id), "Utility bill deleted successfully."),
+    addUtilityBill: (newBill) => performApiAction(() => api.addUtilityBill({ id: `b${Date.now()}`, ...newBill }), t('toasts.utilityBillAdded')),
+    updateUtilityBill: (bill) => performApiAction(() => api.updateUtilityBill(bill), t('toasts.utilityBillUpdated')),
+    deleteUtilityBill: (id) => performApiAction(() => api.deleteUtilityBill(id), t('toasts.utilityBillDeleted')),
 
-    addExpense: (newExpense) => performApiAction(() => api.addExpense({ id: `e${Date.now()}`, ...newExpense }), "Expense added successfully."),
-    updateExpense: (expense) => performApiAction(() => api.updateExpense(expense), "Expense updated successfully."),
-    deleteExpense: (id) => performApiAction(() => api.deleteExpense(id), "Expense deleted successfully."),
+    addExpense: (newExpense) => performApiAction(() => api.addExpense({ id: `e${Date.now()}`, ...newExpense }), t('toasts.expenseAdded')),
+    updateExpense: (expense) => performApiAction(() => api.updateExpense(expense), t('toasts.expenseUpdated')),
+    deleteExpense: (id) => performApiAction(() => api.deleteExpense(id), t('toasts.expenseDeleted')),
     
-    updateInitiationDate: (date: Date) => performApiAction(() => api.updateInitiationDate(date.toISOString()), "Initiation date updated."),
-    clearAllData: () => performApiAction(api.clearAllData, "All application data has been reset."),
+    updateInitiationDate: (date: Date) => performApiAction(() => api.updateInitiationDate(date.toISOString()), t('toasts.initiationDateUpdated')),
+    clearAllData: () => performApiAction(api.clearAllData, t('toasts.allDataCleared')),
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>

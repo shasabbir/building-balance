@@ -134,7 +134,7 @@ export default function FamilyPaymentsPage() {
       setIsPayoutDialogOpen(false)
       setEditingPayout(null)
     } catch(error) {
-        // toast is handled in context
+        // toast is handled in context, error re-thrown for form state
     } finally {
         setIsSubmitting(false)
     }
@@ -320,13 +320,21 @@ export default function FamilyPaymentsPage() {
                   <TableCell className="text-right">
                     {member.payable > 0 ? (
                       <Badge variant="destructive">৳{member.payable.toLocaleString()}</Badge>
+                    ) : member.payable < 0 ? (
+                      <Badge variant="success">৳{member.payable.toLocaleString()}</Badge>
                     ) : (
-                      <span className={member.payable < 0 ? 'text-green-600' : ''}>
-                        ৳{member.payable.toLocaleString()}
-                      </span>
+                      <span>৳{member.payable.toLocaleString()}</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right font-semibold hidden md:table-cell">৳{member.cumulativePayable.toLocaleString()}</TableCell>
+                  <TableCell className="text-right font-semibold hidden md:table-cell">
+                    {member.cumulativePayable > 0 ? (
+                      <Badge variant="destructive">৳{member.cumulativePayable.toLocaleString()}</Badge>
+                    ) : member.cumulativePayable < 0 ? (
+                      <Badge variant="success">৳{member.cumulativePayable.toLocaleString()}</Badge>
+                    ) : (
+                      <span>৳{member.cumulativePayable.toLocaleString()}</span>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -489,7 +497,7 @@ export default function FamilyPaymentsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>{t('familyPayments.savePayout')}</Button>
+                <Button type="submit" loading={isSubmitting}>{editingPayout ? t('common.save') : t('common.add')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -520,7 +528,7 @@ export default function FamilyPaymentsPage() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" loading={isSubmitting}>{t('familyPayments.saveMember')}</Button>
+                  <Button type="submit" loading={isSubmitting}>{editingMember ? t('common.save') : t('common.add')}</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -546,5 +554,3 @@ export default function FamilyPaymentsPage() {
     </div>
   )
 }
-
-    

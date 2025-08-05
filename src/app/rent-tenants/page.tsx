@@ -369,6 +369,7 @@ export default function RentTenantsPage() {
     const unassignedRentersInMonth = renters
       .filter(r => {
         if (assignedRenterIds.has(r.id)) return false;
+        if (r.status !== 'active') return false; // Only active unassigned renters
         if (!r.occupancyHistory || r.occupancyHistory.length === 0) return false;
 
         const sortedHistory = [...r.occupancyHistory].sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
@@ -379,7 +380,7 @@ export default function RentTenantsPage() {
         if (moveOutEntry && isBefore(startOfDay(new Date(moveOutEntry.effectiveDate)), startOfMonth(selectedDate))) return false;
         
         const roomForRenterThisMonth = findRoomForRenter(r, referenceDate);
-        if (roomForRenterThisMonth) return false;
+        if (roomForRenterThisMonth) return false; // Already handled by roomSummaries
 
         return true;
       })
@@ -395,7 +396,7 @@ export default function RentTenantsPage() {
   const rentStatusTotals = React.useMemo(() => {
     const rentDue = rentStatusSummary.reduce((acc, s) => acc + s.rentDue, 0)
     const rentPaidThisMonth = rentStatusSummary.reduce((acc, s) => acc + s.rentPaidThisMonth, 0)
-    const payableThisMonth = rentStatusSummary.reduce((acc, s) => acc + (s.payableThisMonth > 0 ? s.payableThisMonth : 0), 0)
+    const payableThisMonth = rentStatusSummary.reduce((acc, s) => acc + s.payableThisMonth, 0)
     const cumulativePayable = rentStatusSummary.reduce((acc, s) => acc + (s.occupant?.cumulativePayable || 0), 0)
     return { rentDue, rentPaidThisMonth, payableThisMonth, cumulativePayable }
   }, [rentStatusSummary])
@@ -483,13 +484,21 @@ export default function RentTenantsPage() {
                       <TableCell className="text-right">
                         {payableThisMonth > 0 ? (
                           <Badge variant="destructive">৳{payableThisMonth.toLocaleString()}</Badge>
+                        ) : payableThisMonth < 0 ? (
+                          <Badge variant="success">৳{payableThisMonth.toLocaleString()}</Badge>
                         ) : (
-                          <span className={payableThisMonth < 0 ? 'text-green-600' : ''}>
-                            ৳{payableThisMonth.toLocaleString()}
-                          </span>
+                          <span>৳{payableThisMonth.toLocaleString()}</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right font-semibold hidden md:table-cell">৳{occupant.cumulativePayable.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-semibold hidden md:table-cell">
+                        {occupant.cumulativePayable > 0 ? (
+                            <Badge variant="destructive">৳{occupant.cumulativePayable.toLocaleString()}</Badge>
+                        ) : occupant.cumulativePayable < 0 ? (
+                            <Badge variant="success">৳{occupant.cumulativePayable.toLocaleString()}</Badge>
+                        ) : (
+                            <span>৳{occupant.cumulativePayable.toLocaleString()}</span>
+                        )}
+                      </TableCell>
                     </>
                   ) : (
                     <TableCell colSpan={4} className="text-center text-muted-foreground">{t('rentAndTenants.vacant')}</TableCell>
@@ -726,7 +735,7 @@ export default function RentTenantsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>{t('rentAndTenants.saveRenter')}</Button>
+                <Button type="submit" loading={isSubmitting}>{editingRenter ? t('common.save') : t('common.add')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -768,7 +777,7 @@ export default function RentTenantsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>{t('rentAndTenants.savePayment')}</Button>
+                <Button type="submit" loading={isSubmitting}>{editingPayment ? t('common.save') : t('common.add')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -795,7 +804,7 @@ export default function RentTenantsPage() {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit" loading={isSubmitting}>{t('rentAndTenants.saveRoom')}</Button>
+                <Button type="submit" loading={isSubmitting}>{editingRoom ? t('common.save') : t('common.add')}</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -839,5 +848,3 @@ export default function RentTenantsPage() {
     </div>
   )
 }
-
-    
