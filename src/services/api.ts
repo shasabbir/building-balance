@@ -7,6 +7,7 @@ async function handleAuthError(result: any) {
         console.error("Authentication failed. Clearing session.");
         localStorage.removeItem('pin');
         localStorage.removeItem('isPinAuthenticated');
+        localStorage.removeItem('accessLevel');
         window.location.reload();
     }
 }
@@ -19,7 +20,10 @@ async function postRequest(payload: { action: string; data?: any }) {
     
     const pin = localStorage.getItem('pin');
     if (payload.action !== 'checkPin' && !pin) {
-        throw new Error("User not authenticated.");
+        // Allow checkPin to proceed without a stored PIN
+        if (payload.action !== 'checkPin') {
+            throw new Error("User not authenticated.");
+        }
     }
 
     const body = JSON.stringify({ ...payload, pin });
@@ -84,7 +88,7 @@ async function getRequest(params: Record<string, string>) {
 
 export const api = {
     sync: () => getRequest({ action: 'sync' }),
-    checkPin: (pin: string) => postRequest({ action: 'checkPin', data: { pin } }),
+    checkPin: (pin: string): Promise<{ authenticated: boolean; accessLevel: 'admin' | 'readonly' }> => postRequest({ action: 'checkPin', data: { pin } }),
     
     // Renter
     addRenter: (data: Renter) => postRequest({ action: 'addRenter', data }),

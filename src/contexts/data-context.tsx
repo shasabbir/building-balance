@@ -9,6 +9,8 @@ import { api } from '@/services/api'
 import { useToast } from '@/hooks/use-toast'
 import { useLanguage } from './language-context'
 
+type AccessLevel = 'admin' | 'readonly';
+
 type DataContextType = {
   // State
   familyMembers: FamilyMember[]
@@ -19,12 +21,14 @@ type DataContextType = {
   renters: Renter[]
   rentPayments: RentPayment[]
   initiationDate: Date
+  accessLevel: AccessLevel | null
   
   // Loading states
   isLoading: boolean
   isSyncing: boolean
 
   // Actions
+  setAccessLevel: (level: AccessLevel) => void
   addRenter: (data: Omit<Renter, 'id' | 'cumulativePayable' | 'status'>) => Promise<void>
   updateRenter: (data: Renter) => Promise<void>
   archiveRenter: (data: Renter) => Promise<void>
@@ -71,6 +75,7 @@ const getLocalData = () => {
         const renters = localStorage.getItem('renters')
         const rentPayments = localStorage.getItem('rentPayments')
         const initiationDate = localStorage.getItem('initiationDate')
+        const accessLevel = localStorage.getItem('accessLevel')
 
         return {
             familyMembers: familyMembers ? JSON.parse(familyMembers) : [],
@@ -81,6 +86,7 @@ const getLocalData = () => {
             renters: renters ? JSON.parse(renters) : [],
             rentPayments: rentPayments ? JSON.parse(rentPayments) : [],
             initiationDate: initiationDate ? new Date(JSON.parse(initiationDate)) : new Date('2024-01-01'),
+            accessLevel: accessLevel as AccessLevel | null,
         }
     } catch (e) {
         return null
@@ -116,6 +122,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const { t } = useLanguage()
   const [isLoading, setIsLoading] = React.useState(true)
   const [isSyncing, setIsSyncing] = React.useState(true)
+  const [accessLevel, setAccessLevel] = React.useState<AccessLevel | null>(null)
 
   const [data, setData] = React.useState<AllData>({
     familyMembers: [],
@@ -164,10 +171,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const localData = getLocalData();
     if (localData) {
-        setData(localData);
+        setData({ ...localData, initiationDate: localData.initiationDate });
+        if (localData.accessLevel) {
+          setAccessLevel(localData.accessLevel);
+        }
     }
     setIsLoading(false);
-    syncData();
+    
+    if (localStorage.getItem('isPinAuthenticated') === 'true') {
+        syncData();
+    }
   }, [syncData]);
 
   const performApiAction = async (action: () => Promise<any>, successMessage: string) => {
@@ -175,8 +188,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           const freshData = await action();
           handleApiResponse(freshData);
           toast({ title: 'Success', description: successMessage });
-      } catch (error) {
-          if (typeof window !== 'undefined' && !window.navigator.onLine) {
+      } catch (error: any) {
+          if (error.message.includes('Read-only')) {
+               toast({
+                  variant: "destructive",
+                  title: 'Permission Denied',
+                  description: 'You are in read-only mode.',
+              });
+          } else if (typeof window !== 'undefined' && !window.navigator.onLine) {
               toast({
                   variant: "destructive",
                   title: t('pinAuth.noInternetTitle'),
@@ -232,6 +251,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     ...processedData,
     isLoading,
     isSyncing,
+    accessLevel,
+    setAccessLevel,
     syncData,
 
     // --- Actions ---

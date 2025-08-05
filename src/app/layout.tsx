@@ -35,15 +35,15 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <LanguageProvider>
-            <PinAuth>
-              <DateProvider>
-                <DataProvider>
+            <DateProvider>
+              <DataProvider>
+                <PinAuth>
                   <AppLayout>
                     {children}
                   </AppLayout>
-                </DataProvider>
-              </DateProvider>
-            </PinAuth>
+                </PinAuth>
+              </DataProvider>
+            </DateProvider>
           </LanguageProvider>
           <Toaster />
         </ThemeProvider>

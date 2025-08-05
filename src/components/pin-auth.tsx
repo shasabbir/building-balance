@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { api } from '@/services/api'
 import { useToast } from '@/hooks/use-toast'
 import { useLanguage } from '@/contexts/language-context'
+import { useData } from '@/contexts/data-context'
 
 export function PinAuth({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false)
@@ -23,23 +24,28 @@ export function PinAuth({ children }: { children: React.ReactNode }) {
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const { toast } = useToast()
   const { t } = useLanguage()
+  const { setAccessLevel } = useData()
 
   React.useEffect(() => {
     try {
       const authStatus = localStorage.getItem('isPinAuthenticated')
       if (authStatus === 'true') {
         setIsAuthenticated(true)
+        const level = localStorage.getItem('accessLevel') as 'admin' | 'readonly' | null;
+        if (level) {
+          setAccessLevel(level);
+        }
       }
     } catch (e) {
       console.error("Could not read from localStorage", e)
     } finally {
       setIsChecking(false)
     }
-  }, [])
+  }, [setAccessLevel])
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (pin.length !== 6) {
+    if (pin.length < 4) {
         toast({
             variant: "destructive",
             title: t('pinAuth.invalidPinTitle'),
@@ -49,9 +55,11 @@ export function PinAuth({ children }: { children: React.ReactNode }) {
     }
     setIsSubmitting(true)
     try {
-      await api.checkPin(pin)
+      const { accessLevel } = await api.checkPin(pin)
       localStorage.setItem('isPinAuthenticated', 'true')
       localStorage.setItem('pin', pin)
+      localStorage.setItem('accessLevel', accessLevel)
+      setAccessLevel(accessLevel)
       setIsAuthenticated(true)
     } catch (error) {
       toast({
