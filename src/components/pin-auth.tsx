@@ -45,7 +45,7 @@ export function PinAuth({ children }: { children: React.ReactNode }) {
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (pin.length < 4) {
+    if (pin.length !== 6) {
         toast({
             variant: "destructive",
             title: t('pinAuth.invalidPinTitle'),

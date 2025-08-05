@@ -13,7 +13,7 @@ export const en = {
     description: 'Please enter the 6-digit PIN to access the application.',
     unlockButton: 'Unlock',
     invalidPinTitle: 'Invalid PIN',
-    invalidPinDescription: 'PIN must be 6 digits long.',
+    invalidPinDescription: 'PIN must be exactly 6 digits.',
     authFailedTitle: 'Authentication Failed',
     authFailedDescription: 'The PIN you entered is incorrect.',
   },
